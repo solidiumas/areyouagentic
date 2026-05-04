@@ -1,0 +1,69 @@
+// areyouagentic.com — Prisma schema
+//
+// JSON columns (`findings`, `recommendations`, `evidence`) are typed via
+// Zod schemas in `@areyouagentic/shared`. Always parse on read and validate
+// on write to keep the JSONB structure honest.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model AnalysisJob {
+  id            String    @id @default(cuid())
+  url           String
+  // Normalized form used for deduplication (lowercased host, sorted query, etc.)
+  normalizedUrl String
+  status        JobStatus @default(PENDING)
+  errorMessage  String?
+
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+
+  report Report?
+
+  @@index([normalizedUrl, createdAt])
+  @@index([status])
+}
+
+model Report {
+  id    String      @id @default(cuid())
+  jobId String      @unique
+  job   AnalysisJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  overallScore Int    // 0-100
+  grade        String // A | B | C | D | F
+
+  // Per-dimension scores (0-100)
+  machineReadabilityScore Int
+  structuredDataScore     Int
+  agentSignalsScore       Int
+  actionabilityScore      Int
+  performanceScore        Int
+  contentClarityScore     Int
+
+  // Structured payloads — see @areyouagentic/shared for the Zod schemas.
+  findings        Json // Findings  (array of Finding)
+  recommendations Json // Recommendations
+  evidence        Json // Evidence (array of EvidenceItem)
+
+  pageTitle String?
+  finalUrl  String
+
+  createdAt DateTime @default(now())
+
+  @@index([overallScore])
+  @@index([createdAt])
+}

@@ -1,0 +1,20 @@
+{
+  "name": "@areyouagentic/web",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Next.js frontend for areyouagentic.com",
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'TODO: next dev'",
+    "build": "echo 'TODO: next build'",
+    "start": "echo 'TODO: next start'",
+    "lint": "echo 'TODO: eslint'",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf .next .turbo dist"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@areyouagentic/config": "workspace:*",
+    "typescript": "^5.6.3"
+  }
+}
