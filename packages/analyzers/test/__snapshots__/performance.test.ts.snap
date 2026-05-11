@@ -1,0 +1,8 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`performanceAnalyzer > produces a stable snapshot for the fast ideal scenario 1`] = `
+{
+  "findingIds": [],
+  "score": 100,
+}
+`;

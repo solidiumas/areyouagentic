@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Wool Beanie — Heather Grey | Northwind Outfitters</title>
+    <meta name="description" content="Soft merino wool beanie in heather grey. Machine washable, sized for adults, ships within 24 hours from our Portland warehouse." />
+    <link rel="canonical" href="https://northwind.example.com/products/wool-beanie-grey" />
+    <meta property="og:title" content="Wool Beanie — Heather Grey" />
+    <meta property="og:description" content="Soft merino wool, machine washable." />
+    <meta property="og:image" content="https://northwind.example.com/img/wool-beanie.jpg" />
+    <meta property="og:url" content="https://northwind.example.com/products/wool-beanie-grey" />
+    <meta property="og:type" content="product" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "Product",
+        "name": "Wool Beanie — Heather Grey",
+        "image": "https://northwind.example.com/img/wool-beanie.jpg",
+        "offers": {
+          "@type": "Offer",
+          "price": "32.00",
+          "priceCurrency": "USD",
+          "availability": "https://schema.org/InStock"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <header><nav><a href="/">Home</a><a href="/men">Men</a><a href="/women">Women</a></nav></header>
+    <main>
+      <article itemscope itemtype="https://schema.org/Product">
+        <h1 itemprop="name">Wool Beanie — Heather Grey</h1>
+        <img itemprop="image" src="/img/wool-beanie.jpg" alt="Heather grey merino wool beanie folded on a wooden surface" />
+        <p itemprop="description">A soft, double-layered merino wool beanie in heather grey. Sized for adults — comfortable on heads up to 60cm circumference. Machine washable on cold, lay flat to dry.</p>
+        <p>Knit in Portugal from RWS-certified wool. Ships from our Portland warehouse within 24 hours.</p>
+        <form action="/cart/add" method="post">
+          <label for="size">Size</label>
+          <select id="size" name="size">
+            <option>S/M</option>
+            <option>L/XL</option>
+          </select>
+          <label for="qty">Quantity</label>
+          <input id="qty" name="qty" type="number" value="1" min="1" />
+          <button type="submit">Add to cart</button>
+        </form>
+      </article>
+    </main>
+    <footer><p>&copy; 2024 Northwind Outfitters</p></footer>
+  </body>
+</html>

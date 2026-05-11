@@ -1,0 +1,8 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`machineReadabilityAnalyzer > produces a stable snapshot for the ideal fixture 1`] = `
+{
+  "findingIds": [],
+  "score": 100,
+}
+`;

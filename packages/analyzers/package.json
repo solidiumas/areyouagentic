@@ -11,11 +11,19 @@
   },
   "scripts": {
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist .turbo"
   },
+  "dependencies": {
+    "@areyouagentic/shared": "workspace:*",
+    "cheerio": "^1.0.0"
+  },
   "devDependencies": {
     "@areyouagentic/config": "workspace:*",
-    "typescript": "^5.6.3"
+    "@types/node": "^20.16.11",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
   }
 }
