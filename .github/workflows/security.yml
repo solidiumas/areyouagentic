@@ -1,0 +1,96 @@
+name: Security
+
+on:
+  schedule:
+    # Weekly, Monday 06:00 UTC. Lets us see new advisories at the start of
+    # the week without competing with deploy windows.
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      # Only re-run CodeQL on PRs that touch source — config-only PRs don't
+      # need the full ~10-minute scan.
+      - "apps/**"
+      - "packages/**"
+      - "pnpm-lock.yaml"
+
+env:
+  NODE_VERSION: 20
+  PNPM_VERSION: 9.12.0
+
+jobs:
+  audit:
+    name: pnpm audit
+    runs-on: ubuntu-latest
+    # On PRs the audit failure should be visible but non-blocking — vendor
+    # advisories drop unpredictably and we don't want a Monday-morning
+    # advisory to wedge the entire team's PRs.
+    continue-on-error: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Audit (high+critical)
+        # --audit-level=high so we fail only on advisories we'd act on the
+        # same week. --prod restricts to runtime deps; dev-only advisories
+        # are tracked separately in the README.
+        run: pnpm audit --audit-level=high --prod
+
+      - name: Audit (all severities, informational)
+        if: always()
+        run: pnpm audit --json > pnpm-audit.json || true
+
+      - name: Upload audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pnpm-audit-${{ github.run_id }}
+          path: pnpm-audit.json
+          retention-days: 30
+
+  codeql:
+    name: CodeQL scan
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          # security-extended catches a wider set of patterns than the
+          # default suite — worth the ~2 minutes extra on a weekly cadence.
+          queries: security-extended
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}

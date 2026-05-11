@@ -11,6 +11,9 @@ export type AnalysisJobPayload = {
   jobId: string;
   url: string;
   normalizedUrl: string;
+  // Origin HTTP request id from the API. Optional for backward compat with
+  // jobs enqueued before the field was introduced.
+  requestId?: string;
 };
 
 /**

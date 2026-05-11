@@ -1,0 +1,118 @@
+# docker-compose for end-to-end staging-test on a single host.
+# Not intended for production traffic — production deploys split web → Vercel,
+# api/worker → Railway/Fly.io, db → Neon/Supabase, redis → Upstash, R2 →
+# Cloudflare. This file is for "does the whole thing boot together" testing.
+#
+# Usage:
+#   cp .env.example .env.staging
+#   # fill in secrets
+#   docker compose -f docker-compose.prod.yml --env-file .env.staging up -d --build
+#
+# Migrate the database after first start:
+#   docker compose -f docker-compose.prod.yml exec api node node_modules/prisma/build/index.js migrate deploy
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-areyouagentic}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-areyouagentic}
+      POSTGRES_DB: ${POSTGRES_DB:-areyouagentic}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-areyouagentic} -d ${POSTGRES_DB:-areyouagentic}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://${POSTGRES_USER:-areyouagentic}:${POSTGRES_PASSWORD:-areyouagentic}@postgres:5432/${POSTGRES_DB:-areyouagentic}?schema=public
+      REDIS_URL: redis://redis:6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-staging}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+      METRICS_USERNAME: ${METRICS_USERNAME:-}
+      METRICS_PASSWORD: ${METRICS_PASSWORD:-}
+    ports:
+      - "${API_PORT:-4000}:4000"
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-areyouagentic}:${POSTGRES_PASSWORD:-areyouagentic}@postgres:5432/${POSTGRES_DB:-areyouagentic}?schema=public
+      REDIS_URL: redis://redis:6379
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-3}
+      JOB_TIMEOUT_MS: ${JOB_TIMEOUT_MS:-90000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      HEALTH_PORT: 4001
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-staging}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+    ports:
+      - "${WORKER_HEALTH_PORT:-4001}:4001"
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      # Browser fetches go through Next, which proxies same-origin — but if
+      # you want the browser to talk directly to the API, set this to the
+      # publicly-reachable API URL.
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+      NEXT_PUBLIC_APP_URL: ${APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${SENTRY_ENVIRONMENT:-staging}
+      SENTRY_RELEASE: ${SENTRY_RELEASE:-}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+volumes:
+  postgres_data:
+  redis_data:

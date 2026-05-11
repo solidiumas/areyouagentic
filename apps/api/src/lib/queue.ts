@@ -8,6 +8,9 @@ export type AnalysisJobPayload = {
   jobId: string;
   url: string;
   normalizedUrl: string;
+  // The originating HTTP request id, propagated through the queue so worker
+  // logs can be joined to API logs for a single user-initiated flow.
+  requestId?: string;
 };
 
 const DEFAULT_JOB_OPTIONS: JobsOptions = {
