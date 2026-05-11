@@ -49,6 +49,14 @@ async function request<TResp>(
   responseSchema: z.ZodType<TResp>,
   { signal }: RequestOptions = {},
 ): Promise<TResp> {
+  // Mint a request id so the browser can quote it when reporting issues and
+  // so API logs can be correlated with frontend errors. The middleware also
+  // sets one for SSR/RSC traffic — this covers client-side fetches.
+  const requestId =
+    typeof crypto !== 'undefined' && typeof (crypto as Crypto).randomUUID === 'function'
+      ? (crypto as Crypto).randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
@@ -56,6 +64,7 @@ async function request<TResp>(
       signal,
       headers: {
         Accept: 'application/json',
+        'X-Request-Id': requestId,
         ...(init.body ? { 'Content-Type': 'application/json' } : {}),
         ...init.headers,
       },
