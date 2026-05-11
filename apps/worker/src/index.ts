@@ -1,6 +1,8 @@
 import { prisma } from '@areyouagentic/db';
 import { env } from './lib/env.js';
+import { closeHealthServer, createHealthServer } from './lib/health.js';
 import { logger } from './lib/logger.js';
+import { initSentry } from './lib/sentry.js';
 import { createAnalysisWorker } from './worker.js';
 
 /**
@@ -12,12 +14,15 @@ import { createAnalysisWorker } from './worker.js';
 const SHUTDOWN_GRACE_MS = env.JOB_TIMEOUT_MS + 5_000;
 
 async function main(): Promise<void> {
+  await initSentry();
+
   logger.info(
     { concurrency: env.WORKER_CONCURRENCY, jobTimeoutMs: env.JOB_TIMEOUT_MS },
     'starting worker',
   );
 
   const { worker, connection } = createAnalysisWorker();
+  const healthServer = createHealthServer(connection);
 
   let shuttingDown = false;
   const shutdown = async (signal: string): Promise<void> => {
@@ -43,6 +48,9 @@ async function main(): Promise<void> {
       logger.info('worker drained cleanly');
     }
 
+    await closeHealthServer(healthServer).catch((err) =>
+      logger.error({ err }, 'health server close failed'),
+    );
     connection.disconnect();
     await prisma.$disconnect().catch((err) =>
       logger.error({ err }, 'prisma disconnect failed'),

@@ -3,9 +3,13 @@ import { env } from './lib/env.js';
 import { logger } from './lib/logger.js';
 import { closeAnalysisQueue } from './lib/queue.js';
 import { closeRateLimitRedis } from './lib/rateLimiter.js';
+import { initSentry } from './lib/sentry.js';
 import { buildServer } from './server.js';
 
 async function main(): Promise<void> {
+  // Sentry first so any error during server build is reported.
+  await initSentry();
+
   const app = await buildServer();
 
   await app.listen({ port: env.PORT, host: '0.0.0.0' });

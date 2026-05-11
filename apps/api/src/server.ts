@@ -8,6 +8,7 @@ import { registerHelmet } from './plugins/helmet.js';
 import { analyzeRoutes } from './routes/analyze.js';
 import { healthRoutes } from './routes/health.js';
 import { jobsRoutes } from './routes/jobs.js';
+import { metricsRoutes } from './routes/metrics.js';
 import { reportsRoutes } from './routes/reports.js';
 
 /**
@@ -50,6 +51,7 @@ export async function buildServer(): Promise<FastifyInstance> {
   await app.register(analyzeRoutes);
   await app.register(jobsRoutes);
   await app.register(reportsRoutes);
+  await app.register(metricsRoutes);
 
   return app;
 }

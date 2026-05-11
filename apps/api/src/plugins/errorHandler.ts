@@ -1,6 +1,7 @@
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
 import { isProd } from '../lib/env.js';
+import { captureException } from '../lib/sentry.js';
 
 /**
  * Domain error with a stable machine-readable code and an HTTP status.
@@ -97,6 +98,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
     const status = err.statusCode && err.statusCode < 500 ? err.statusCode : 500;
     if (status >= 500) {
       req.log.error({ err }, 'Unhandled error');
+      void captureException(err, { requestId: req.id, method: req.method, url: req.url });
       return reply
         .code(500)
         .send(

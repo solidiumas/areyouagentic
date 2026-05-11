@@ -1,0 +1,56 @@
+# ─── Source artifacts that have no business inside an image ────────────────
+**/node_modules
+**/.next
+**/dist
+**/build
+**/out
+**/.turbo
+**/coverage
+**/.nyc_output
+
+# Tests / fixtures
+**/test-results
+**/playwright-report
+**/playwright/.cache
+**/blob-report
+
+# Local env + secrets
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+
+# VCS / editors / OS
+.git
+.github
+.gitignore
+.gitattributes
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+
+# Tooling caches
+.eslintcache
+*.tsbuildinfo
+.pnpm-store
+
+# Docs and Claude scratch
+docs
+.claude
+*.md
+!README.md
+
+# Local prisma + data
+packages/db/prisma/migrations/dev
+.docker-data
+
+# Load tests aren't needed in any runtime image
+tests/load
+
+# Dockerfiles themselves don't need to be in build context
+**/Dockerfile
+**/Dockerfile.*
+docker-compose*.yml
