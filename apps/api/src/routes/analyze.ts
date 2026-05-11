@@ -124,7 +124,7 @@ export async function analyzeRoutes(app: FastifyInstance): Promise<void> {
       });
 
       try {
-        await enqueueAnalysis({ jobId: job.id, url, normalizedUrl });
+        await enqueueAnalysis({ jobId: job.id, url, normalizedUrl, requestId: req.id });
       } catch (enqueueErr) {
         // The row would otherwise dedupe future requests for the same URL —
         // mark it FAILED so the next caller can try again immediately.

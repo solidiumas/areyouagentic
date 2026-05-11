@@ -13,6 +13,16 @@ const envSchema = z.object({
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .optional(),
+
+  // Sentry is opt-in. Without a DSN the SDK never initializes.
+  SENTRY_DSN: z.string().url().optional(),
+  SENTRY_ENVIRONMENT: z.string().optional(),
+  SENTRY_RELEASE: z.string().optional(),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional(),
+
+  // /api/metrics is gated by basic auth. Disabled entirely if either is unset.
+  METRICS_USERNAME: z.string().min(1).optional(),
+  METRICS_PASSWORD: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,0 +1,17 @@
+# Acme Coffee
+
+> Acme is a Brooklyn-based coffee roaster shipping single-origin beans nationwide.
+
+## Beans
+
+- [Single-origin lineup](https://acme.coffee/beans): catalog of current offerings
+- [Roast profiles](https://acme.coffee/roast-profiles): how we roast each origin
+
+## Brewing
+
+- [Pour-over guide](https://acme.coffee/brew/pour-over)
+- [Espresso guide](https://acme.coffee/brew/espresso)
+
+## Optional
+
+- [Full corpus](https://acme.coffee/llms-full.txt): everything above plus historical posts and tasting notes

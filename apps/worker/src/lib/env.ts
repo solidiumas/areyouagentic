@@ -20,6 +20,17 @@ const envSchema = z.object({
   LOG_LEVEL: z
     .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
     .optional(),
+
+  // HTTP port for the in-process health server. The worker isn't an HTTP
+  // service but the orchestrator needs a probe target — we bind a tiny
+  // node:http server on this port to answer /health.
+  HEALTH_PORT: z.coerce.number().int().positive().default(4001),
+
+  // Sentry is opt-in. Without a DSN the SDK never initializes.
+  SENTRY_DSN: z.string().url().optional(),
+  SENTRY_ENVIRONMENT: z.string().optional(),
+  SENTRY_RELEASE: z.string().optional(),
+  SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

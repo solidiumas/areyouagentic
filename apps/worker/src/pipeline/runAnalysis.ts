@@ -42,8 +42,10 @@ async function runStage(name: string, stage: Stage, ctx: AnalysisContext): Promi
  *   - persist writes the resulting Report → sequential, last
  */
 export async function runAnalysis(job: Job<AnalysisJobPayload>): Promise<void> {
-  const { jobId, url } = job.data;
-  const log = logger.child({ jobId, url, bullJobId: job.id });
+  const { jobId, url, requestId } = job.data;
+  // requestId carries through from the originating HTTP request — log it so
+  // worker entries can be joined with API entries for the same flow.
+  const log = logger.child({ jobId, url, bullJobId: job.id, requestId });
 
   await prisma.analysisJob.update({
     where: { id: jobId },

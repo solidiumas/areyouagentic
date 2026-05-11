@@ -1,0 +1,10 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`structuredDataAnalyzer > produces a stable snapshot for the ideal fixture 1`] = `
+{
+  "findingIds": [
+    "SD_NO_MICRODATA",
+  ],
+  "score": 85,
+}
+`;

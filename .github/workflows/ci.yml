@@ -12,13 +12,17 @@ concurrency:
 
 env:
   NODE_VERSION: 20
-  PNPM_VERSION: 9
+  PNPM_VERSION: 9.12.0
+  TURBO_TELEMETRY_DISABLED: 1
 
 jobs:
-  ci:
-    name: Lint, typecheck, build, test
+  # Lint / typecheck / build / test runs once. Turbo's local cache is
+  # primed from a remote cache key keyed on the lockfile + source SHA, so
+  # subsequent jobs benefit from work this one did.
+  verify:
+    name: Verify (lint, typecheck, build, test)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Checkout
@@ -28,6 +32,7 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: ${{ env.PNPM_VERSION }}
+          run_install: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -35,8 +40,19 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: pnpm
 
+      - name: Cache Turbo
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: |
+            turbo-${{ runner.os }}-
+
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Prisma generate
+        run: pnpm --filter @areyouagentic/db exec prisma generate
 
       - name: Format check
         run: pnpm format:check
@@ -52,3 +68,33 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  # Build the three runtime images. We don't push from CI on PRs —
+  # deploy.yml handles registry pushes on manual dispatch. This job only
+  # validates that each Dockerfile still builds.
+  docker-build:
+    name: Build ${{ matrix.app }} image
+    runs-on: ubuntu-latest
+    needs: verify
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [api, worker, web]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.app }}/Dockerfile
+          push: false
+          load: false
+          tags: areyouagentic-${{ matrix.app }}:ci-${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.app }}
+          cache-to: type=gha,scope=${{ matrix.app }},mode=max

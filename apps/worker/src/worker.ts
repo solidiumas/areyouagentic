@@ -3,6 +3,7 @@ import type { Redis } from 'ioredis';
 import { env } from './lib/env.js';
 import { logger } from './lib/logger.js';
 import { ANALYSIS_QUEUE_NAME, type AnalysisJobPayload, createRedisConnection } from './lib/queue.js';
+import { captureException } from './lib/sentry.js';
 import { runAnalysis } from './pipeline/runAnalysis.js';
 import { PermanentJobError } from './pipeline/context.js';
 
@@ -82,6 +83,14 @@ export function createAnalysisWorker(): AnalysisWorker {
       { jobId: job?.id, err, attemptsMade: job?.attemptsMade },
       'job failed',
     );
+    // Only report to Sentry once retries are exhausted — flapping jobs would
+    // otherwise produce spam. `attemptsMade >= attempts` means BullMQ won't
+    // try again.
+    const exhausted =
+      job && typeof job.attemptsMade === 'number' && job.attemptsMade >= (job.opts.attempts ?? 1);
+    if (exhausted || err instanceof UnrecoverableError) {
+      void captureException(err, { jobId: job?.id, attemptsMade: job?.attemptsMade });
+    }
   });
   worker.on('error', (err) => {
     logger.error({ err }, 'worker error');

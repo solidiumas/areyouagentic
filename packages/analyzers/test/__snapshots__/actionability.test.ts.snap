@@ -1,0 +1,10 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`actionabilityAnalyzer > produces a stable snapshot for the ideal fixture 1`] = `
+{
+  "findingIds": [
+    "AC_UNSTABLE_SELECTORS",
+  ],
+  "score": 93,
+}
+`;
