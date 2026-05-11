@@ -311,3 +311,32 @@ export function validateAnalyzableUrl(input: unknown): UrlValidationResult {
 
   return { ok: true, url: parsed };
 }
+
+/**
+ * Classify a literal IP string (no DNS lookup) as loopback / private /
+ * link-local / reserved, or return `null` if it's a public address.
+ *
+ * Used by the worker's safe-fetch helper to re-check each address the
+ * hostname resolved to — the URL validator only sees the literal hostname,
+ * so DNS rebinding ("evil.example.com" → 127.0.0.1) needs this second pass.
+ *
+ * Accepts both IPv4 (dotted-quad and obfuscated forms) and IPv6 (with or
+ * without brackets, including IPv4-mapped suffixes).
+ */
+export function classifyIpString(ip: string): UrlValidationReason | null {
+  if (ip.length === 0) return 'invalid-url';
+
+  const trimmed =
+    ip.startsWith('[') && ip.endsWith(']') ? ip.slice(1, -1) : ip;
+
+  // IPv6 always contains a colon. IPv4 never does.
+  if (trimmed.includes(':')) {
+    const bytes = parseIpv6(trimmed);
+    if (!bytes) return 'invalid-url';
+    return classifyIpv6(bytes);
+  }
+
+  const v4 = parseIpv4(trimmed);
+  if (!v4) return 'invalid-url';
+  return classifyIpv4(v4);
+}

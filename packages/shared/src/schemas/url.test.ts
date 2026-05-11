@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { urlSchema, validateAnalyzableUrl } from './url.js';
+import { classifyIpString, urlSchema, validateAnalyzableUrl } from './url.js';
 
 describe('validateAnalyzableUrl — valid URLs', () => {
   it('accepts a plain https URL', () => {
@@ -257,6 +257,44 @@ describe('validateAnalyzableUrl — bad input', () => {
       ok: false,
       reason: 'invalid-url',
     });
+  });
+});
+
+describe('classifyIpString — DNS resolution gate', () => {
+  it('returns null for a public IPv4 address', () => {
+    expect(classifyIpString('8.8.8.8')).toBeNull();
+  });
+
+  it('flags 127.0.0.1 as loopback', () => {
+    expect(classifyIpString('127.0.0.1')).toBe('loopback-ip');
+  });
+
+  it('flags 169.254.169.254 (AWS metadata) as link-local', () => {
+    expect(classifyIpString('169.254.169.254')).toBe('link-local');
+  });
+
+  it('flags 10.0.0.5 as private', () => {
+    expect(classifyIpString('10.0.0.5')).toBe('private-ip');
+  });
+
+  it('flags IPv6 ::1 as loopback', () => {
+    expect(classifyIpString('::1')).toBe('loopback-ip');
+  });
+
+  it('flags IPv4-mapped IPv6 of 127.0.0.1 as loopback', () => {
+    expect(classifyIpString('::ffff:127.0.0.1')).toBe('loopback-ip');
+  });
+
+  it('returns null for a public IPv6 address', () => {
+    expect(classifyIpString('2606:4700:4700::1111')).toBeNull();
+  });
+
+  it('rejects an empty string', () => {
+    expect(classifyIpString('')).toBe('invalid-url');
+  });
+
+  it('rejects garbage', () => {
+    expect(classifyIpString('not-an-ip')).toBe('invalid-url');
   });
 });
 

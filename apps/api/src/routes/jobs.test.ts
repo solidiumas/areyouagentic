@@ -96,16 +96,30 @@ describe('GET /api/jobs/:id', () => {
 
   // ── Failure cases ────────────────────────────────────────────────
 
-  it('returns 404 when the job id does not exist', async () => {
+  it('returns 404 when the job id does not exist (well-formed cuid)', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/jobs/does-not-exist-123',
+      // Well-formed cuid that just doesn't exist in the DB.
+      url: '/api/jobs/cl1234567890abcdef12345',
       headers: uniqueIpHeader(),
     });
 
     expect(res.statusCode).toBe(404);
     expect(res.json()).toMatchObject({
       error: { code: 'NOT_FOUND', message: expect.any(String) },
+    });
+  });
+
+  it('returns 400 for malformed ids without hitting the DB', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/jobs/not-a-cuid',
+      headers: uniqueIpHeader(),
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({
+      error: { code: 'VALIDATION_ERROR' },
     });
   });
 

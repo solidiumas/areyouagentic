@@ -6,7 +6,7 @@
 // In dev, they default to local docker-compose values that match the project
 // README — running `docker compose up` is enough to run these tests locally.
 
-/** Treat empty strings as unset — `ANTHROPIC_API_KEY=` in a parent shell would
+/** Treat empty strings as unset — `DATABASE_URL=` in a parent shell would
  * otherwise short-circuit a `??`-style default. */
 const pick = (...candidates: Array<string | undefined>): string | undefined => {
   for (const c of candidates) {
@@ -31,6 +31,7 @@ process.env.REDIS_URL = pick(
   'redis://localhost:6379/15',
 )!;
 
-process.env.ANTHROPIC_API_KEY = pick(process.env.ANTHROPIC_API_KEY, 'sk-ant-test-placeholder')!;
+// Note: ANTHROPIC_API_KEY is intentionally NOT set here. The API service must
+// never accept or rely on it — only the worker process talks to Anthropic.
 process.env.APP_URL = pick(process.env.APP_URL, 'http://localhost:3000')!;
 process.env.PORT = pick(process.env.PORT, '4000')!;

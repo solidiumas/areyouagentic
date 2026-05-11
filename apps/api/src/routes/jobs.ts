@@ -5,8 +5,13 @@ import { z } from 'zod';
 import { getAnalysisQueue } from '../lib/queue.js';
 import { HttpError } from '../plugins/errorHandler.js';
 
+// Prisma's `@default(cuid())` produces a lowercase-alphanumeric string of
+// 24–25 chars starting with `c`. The bound is generous on both ends so a
+// future cuid version (or migration to cuid2) doesn't break this validator.
+const CUID_RE = /^c[a-z0-9]{20,32}$/;
+
 const paramsSchema = z.object({
-  id: z.string().min(1).max(64),
+  id: z.string().regex(CUID_RE, 'Invalid id format'),
 });
 
 export async function jobsRoutes(app: FastifyInstance): Promise<void> {

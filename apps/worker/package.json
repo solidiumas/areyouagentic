@@ -9,6 +9,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
+    "retention": "node dist/retention.js",
+    "retention:dev": "tsx src/retention.ts",
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
