@@ -1,0 +1,43 @@
+# Dependabot keeps dependencies patched without us having to remember to run
+# `pnpm audit` weekly. Grouped updates keep the PR firehose manageable.
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 10
+    groups:
+      # Bundle production-only patches together — almost always safe to merge.
+      prod-dependencies:
+        dependency-type: 'production'
+        update-types:
+          - 'patch'
+          - 'minor'
+      # Dev dependencies get their own group so a breaking change in eslint or
+      # vitest doesn't block a runtime patch.
+      dev-dependencies:
+        dependency-type: 'development'
+        update-types:
+          - 'patch'
+          - 'minor'
+    # Major bumps land as individual PRs so a breaking change is obvious.
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+    labels:
+      - 'dependencies'
+    commit-message:
+      prefix: 'chore(deps)'
+      include: 'scope'
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'monthly'
+    labels:
+      - 'dependencies'
+      - 'github-actions'
+    commit-message:
+      prefix: 'chore(actions)'

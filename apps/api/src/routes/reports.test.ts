@@ -88,16 +88,29 @@ describe('GET /api/reports/:id', () => {
 
   // ── Failure cases ────────────────────────────────────────────────
 
-  it('returns 404 when no report exists for that id', async () => {
+  it('returns 404 when no report exists for that id (well-formed cuid)', async () => {
     const res = await app.inject({
       method: 'GET',
-      url: '/api/reports/nope-not-real',
+      url: '/api/reports/cl1234567890abcdef12345',
       headers: uniqueIpHeader(),
     });
 
     expect(res.statusCode).toBe(404);
     expect(res.json()).toMatchObject({
       error: { code: 'NOT_FOUND', message: expect.any(String) },
+    });
+  });
+
+  it('returns 400 for malformed ids', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/reports/not-a-cuid',
+      headers: uniqueIpHeader(),
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(res.json()).toMatchObject({
+      error: { code: 'VALIDATION_ERROR' },
     });
   });
 

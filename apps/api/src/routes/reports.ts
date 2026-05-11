@@ -3,8 +3,11 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { HttpError } from '../plugins/errorHandler.js';
 
+// See routes/jobs.ts for the rationale on this regex.
+const CUID_RE = /^c[a-z0-9]{20,32}$/;
+
 const paramsSchema = z.object({
-  id: z.string().min(1).max(64),
+  id: z.string().regex(CUID_RE, 'Invalid id format'),
 });
 
 export async function reportsRoutes(app: FastifyInstance): Promise<void> {

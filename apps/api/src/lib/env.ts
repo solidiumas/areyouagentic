@@ -7,8 +7,6 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
 
-  ANTHROPIC_API_KEY: z.string().min(1),
-
   APP_URL: z.string().url(),
 
   // Optional log level — defaults differ per NODE_ENV (see logger.ts).
