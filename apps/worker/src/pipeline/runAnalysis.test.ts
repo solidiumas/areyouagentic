@@ -8,7 +8,7 @@ import {
 } from '../lib/queue.js';
 import { createAnalysisWorker } from '../worker.js';
 
-const SAMPLE_URL = 'https://example.com/worker-e2e';
+const SAMPLE_URL = 'https://example.com';
 
 /**
  * End-to-end smoke test: enqueue a job, let the worker (with stub stages)
@@ -17,7 +17,7 @@ const SAMPLE_URL = 'https://example.com/worker-e2e';
  * Requires Postgres + Redis on the URLs in src/test/setup.ts — same as the
  * API integration tests.
  */
-describe('worker pipeline (stubs) — e2e', () => {
+describe('worker pipeline — e2e', () => {
   let queue: Queue<AnalysisJobPayload>;
   let workerHandle: ReturnType<typeof createAnalysisWorker>;
 
@@ -96,6 +96,7 @@ describe('worker pipeline (stubs) — e2e', () => {
     expect(report).not.toBeNull();
     expect(report?.overallScore).toBeGreaterThanOrEqual(0);
     expect(report?.overallScore).toBeLessThanOrEqual(100);
-    expect(report?.finalUrl).toBe(SAMPLE_URL);
+    // example.com may add a trailing slash via redirect — compare without it.
+    expect(report?.finalUrl.replace(/\/$/, '')).toBe(SAMPLE_URL);
   });
 });

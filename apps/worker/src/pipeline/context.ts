@@ -1,4 +1,5 @@
 import type { Logger } from 'pino';
+import type { PerformanceMetrics } from '@areyouagentic/analyzers';
 
 /**
  * Shape that flows through the pipeline. Each stage takes the context, does
@@ -9,9 +10,18 @@ export type AnalysisContext = {
   url: string;
   jobId: string;
 
+  /** URL after redirects — set by fetch stage. */
+  finalUrl?: string;
+  /** Document <title> — set by fetch stage from rawHtml. */
+  pageTitle?: string;
+
   rawHtml?: string;
   renderedHtml?: string;
-  /** Path or buffer reference to the page screenshot (R2 key, eventually). */
+  /** Render-stage timings + page weight. */
+  performanceMetrics?: PerformanceMetrics;
+  /** PNG screenshot bytes — set by render stage, uploaded by persist stage. */
+  screenshotBytes?: Buffer;
+  /** Public R2 URL of the uploaded screenshot — set by persist stage. */
   screenshot?: string;
 
   robotsTxt?: string | null;

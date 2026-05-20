@@ -1,4 +1,7 @@
 {
   "extends": "@areyouagentic/config/tsconfig/library.json",
-  "include": ["src/**/*"]
+  "compilerOptions": {
+    "rootDir": "."
+  },
+  "include": ["src/**/*", "vitest.config.ts"]
 }

@@ -8,6 +8,15 @@ const envSchema = z.object({
 
   ANTHROPIC_API_KEY: z.string().min(1),
 
+  // R2 (Cloudflare) — optional. If all five are set, persist uploads screenshots.
+  // If any is missing the worker still runs; persist just stores the report
+  // without an R2 screenshot URL. Keeps local dev painless.
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET: z.string().optional(),
+  R2_PUBLIC_URL: z.string().url().optional(),
+
   // How many jobs a single worker process handles in parallel. Tune against
   // the cost of a Playwright render — going too high will OOM the box.
   WORKER_CONCURRENCY: z.coerce.number().int().positive().default(3),
