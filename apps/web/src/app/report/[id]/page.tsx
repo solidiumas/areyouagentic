@@ -4,13 +4,7 @@ import { notFound } from 'next/navigation';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Accordion,
   AccordionContent,
@@ -52,7 +46,10 @@ const DIMENSION_LABELS: Record<Dimension, string> = {
   contentClarity: 'Content clarity',
 };
 
-const SEVERITY_VARIANT: Record<Finding['severity'], 'default' | 'secondary' | 'destructive' | 'success'> = {
+const SEVERITY_VARIANT: Record<
+  Finding['severity'],
+  'default' | 'secondary' | 'destructive' | 'success'
+> = {
   high: 'destructive',
   medium: 'default',
   low: 'secondary',
@@ -76,11 +73,7 @@ function dimensionScore(report: ReportData, d: Dimension): number {
   }
 }
 
-export default async function ReportPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function ReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
 
   let report: ReportData;
@@ -104,15 +97,16 @@ export default async function ReportPage({
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <span className="break-all">{report.finalUrl}</span>
           <span aria-hidden>·</span>
-          <time dateTime={report.createdAt.toISOString()}>
-            {report.createdAt.toLocaleString()}
-          </time>
+          <time dateTime={report.createdAt.toISOString()}>{report.createdAt.toLocaleString()}</time>
         </div>
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           {report.pageTitle ?? 'Agentic readiness report'}
         </h1>
         <div className="flex items-end gap-6">
-          <div className="text-7xl font-bold leading-none tracking-tight" aria-label={`Grade ${report.grade}`}>
+          <div
+            className="text-7xl font-bold leading-none tracking-tight"
+            aria-label={`Grade ${report.grade}`}
+          >
             {report.grade}
           </div>
           <div>
@@ -153,9 +147,7 @@ export default async function ReportPage({
           <TabsTrigger value="recommendations">
             Recommendations ({report.recommendations.length})
           </TabsTrigger>
-          <TabsTrigger value="findings">
-            Findings ({report.findings.length})
-          </TabsTrigger>
+          <TabsTrigger value="findings">Findings ({report.findings.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="recommendations" className="space-y-8 pt-4">

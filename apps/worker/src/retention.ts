@@ -53,10 +53,7 @@ async function main(): Promise<void> {
 
   try {
     const deleted = await deleteExpiredJobs();
-    logger.info(
-      { deleted, durationMs: Date.now() - started },
-      'retention: complete',
-    );
+    logger.info({ deleted, durationMs: Date.now() - started }, 'retention: complete');
   } finally {
     await prisma.$disconnect();
   }

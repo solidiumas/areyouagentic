@@ -48,20 +48,16 @@ export default function () {
   const url = nextUrl();
   const start = Date.now();
 
-  const res = http.post(
-    `${API_URL}/api/analyze`,
-    JSON.stringify({ url }),
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        // Forwarding a request-id mirrors what the frontend does in prod,
-        // so logs from a load run look like real traffic.
-        'X-Request-Id': `load-${__VU}-${__ITER}`,
-      },
-      tags: { name: 'POST /api/analyze' },
+  const res = http.post(`${API_URL}/api/analyze`, JSON.stringify({ url }), {
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      // Forwarding a request-id mirrors what the frontend does in prod,
+      // so logs from a load run look like real traffic.
+      'X-Request-Id': `load-${__VU}-${__ITER}`,
     },
-  );
+    tags: { name: 'POST /api/analyze' },
+  });
 
   enqueueLatency.add(Date.now() - start);
 

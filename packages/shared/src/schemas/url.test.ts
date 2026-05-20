@@ -13,9 +13,7 @@ describe('validateAnalyzableUrl — valid URLs', () => {
   });
 
   it('accepts URLs with paths, queries, and fragments', () => {
-    expect(
-      validateAnalyzableUrl('https://example.com/foo/bar?q=hello&n=1#section').ok,
-    ).toBe(true);
+    expect(validateAnalyzableUrl('https://example.com/foo/bar?q=hello&n=1#section').ok).toBe(true);
   });
 
   it('accepts URLs with explicit ports', () => {
@@ -170,9 +168,10 @@ describe('validateAnalyzableUrl — link-local and cloud metadata (SSRF)', () =>
   });
 
   it('rejects IPv4-mapped IPv6 form of the AWS metadata IP', () => {
-    expect(
-      validateAnalyzableUrl('http://[::ffff:169.254.169.254]/'),
-    ).toMatchObject({ ok: false, reason: 'link-local' });
+    expect(validateAnalyzableUrl('http://[::ffff:169.254.169.254]/')).toMatchObject({
+      ok: false,
+      reason: 'link-local',
+    });
   });
 });
 

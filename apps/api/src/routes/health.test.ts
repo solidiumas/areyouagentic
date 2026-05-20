@@ -1,11 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import {
-  buildTestServer,
-  closeTestServer,
-  resetDatabase,
-  resetRedis,
-} from '../test/helpers.js';
+import { buildTestServer, closeTestServer, resetDatabase, resetRedis } from '../test/helpers.js';
 
 describe('GET /health', () => {
   let app: FastifyInstance;

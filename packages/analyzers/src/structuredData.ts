@@ -133,7 +133,8 @@ export const structuredDataAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: SD_FINDINGS.MISSING_JSON_LD,
       severity: 'medium',
       title: 'No JSON-LD structured data',
-      description: 'Pages without JSON-LD give crawlers no canonical schema for entities on the page (organization, product, article, etc.).',
+      description:
+        'Pages without JSON-LD give crawlers no canonical schema for entities on the page (organization, product, article, etc.).',
     });
   } else {
     const valid = jsonLdBlocks.filter((b) => b.ok);
@@ -143,7 +144,7 @@ export const structuredDataAnalyzer: Analyzer = (input): AnalyzerResult => {
         id: SD_FINDINGS.INVALID_JSON_LD,
         severity: 'high',
         title: `Invalid JSON in ${invalid.length} JSON-LD block(s)`,
-        description: 'Crawlers will skip blocks that don\'t parse as JSON.',
+        description: "Crawlers will skip blocks that don't parse as JSON.",
         evidence: snippet(invalid[0]?.raw ?? ''),
       });
     }
@@ -156,7 +157,8 @@ export const structuredDataAnalyzer: Analyzer = (input): AnalyzerResult => {
           id: SD_FINDINGS.JSON_LD_NO_CONTEXT,
           severity: 'medium',
           title: 'JSON-LD blocks missing @context',
-          description: 'Without @context (typically https://schema.org), parsers can\'t resolve types.',
+          description:
+            "Without @context (typically https://schema.org), parsers can't resolve types.",
         });
       } else {
         jsonLdScore += 5;
@@ -178,7 +180,8 @@ export const structuredDataAnalyzer: Analyzer = (input): AnalyzerResult => {
             id: SD_FINDINGS.UNKNOWN_SCHEMA_TYPE,
             severity: 'low',
             title: `JSON-LD types not recognized: ${allTypes.join(', ')}`,
-            description: 'Using a known schema.org type makes the data more useful to mainstream crawlers.',
+            description:
+              'Using a known schema.org type makes the data more useful to mainstream crawlers.',
           });
         } else {
           jsonLdScore += 10;
@@ -201,7 +204,8 @@ export const structuredDataAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: SD_FINDINGS.MISSING_OG_TAGS,
       severity: 'medium',
       title: 'No OpenGraph tags',
-      description: 'OpenGraph tags determine how a URL renders when shared on social media or pasted into chat clients.',
+      description:
+        'OpenGraph tags determine how a URL renders when shared on social media or pasted into chat clients.',
     });
   } else if (ogPresentCount < REQUIRED_OG.length) {
     findings.push({
@@ -236,7 +240,8 @@ export const structuredDataAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: SD_FINDINGS.NO_MICRODATA,
       severity: 'info',
       title: 'No microdata (itemscope/itemprop) annotations',
-      description: 'Microdata is a fallback for crawlers that don\'t parse JSON-LD. Optional if JSON-LD is solid.',
+      description:
+        "Microdata is a fallback for crawlers that don't parse JSON-LD. Optional if JSON-LD is solid.",
     });
   }
   // Don't double-penalize: if JSON-LD already covers it, microdata gap is informational.
@@ -254,7 +259,8 @@ export const structuredDataAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: SD_FINDINGS.MISSING_CANONICAL,
       severity: 'medium',
       title: 'No <link rel="canonical">',
-      description: 'Without a canonical URL, crawlers may treat tracking-parameter variants of this page as separate documents.',
+      description:
+        'Without a canonical URL, crawlers may treat tracking-parameter variants of this page as separate documents.',
     });
   }
 
@@ -270,7 +276,8 @@ export const structuredDataAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: SD_FINDINGS.NO_HREFLANG,
       severity: 'low',
       title: 'No hreflang and no <html lang> declared',
-      description: 'Declare the page language with <html lang="…"> at minimum so crawlers know which natural language to expect.',
+      description:
+        'Declare the page language with <html lang="…"> at minimum so crawlers know which natural language to expect.',
     });
   } else {
     // Monolingual site that declares its language is fine.
@@ -300,7 +307,13 @@ export const structuredDataAnalyzer: Analyzer = (input): AnalyzerResult => {
   }
 
   const score = clampScore(
-    jsonLdScore + ogScore + twitterScore + microdataScore + canonicalScore + hreflangScore + alignmentScore,
+    jsonLdScore +
+      ogScore +
+      twitterScore +
+      microdataScore +
+      canonicalScore +
+      hreflangScore +
+      alignmentScore,
   );
 
   return {

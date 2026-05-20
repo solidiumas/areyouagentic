@@ -60,7 +60,11 @@ export function parseRobotsTxt(text: string): ParsedRobots {
       } else if (current) {
         // Stacked user-agents share the same rule block. Push a sibling group
         // pointing at the same arrays so allow/disallow apply to both.
-        const sibling: RobotsRule = { userAgent: value, allow: current.allow, disallow: current.disallow };
+        const sibling: RobotsRule = {
+          userAgent: value,
+          allow: current.allow,
+          disallow: current.disallow,
+        };
         groups.push(sibling);
       }
       lastWasUserAgent = true;
@@ -187,7 +191,8 @@ export const agentSignalsAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: AS_FINDINGS.NO_ROBOTS_TXT,
       severity: 'medium',
       title: 'No robots.txt',
-      description: 'Without robots.txt crawlers fall back to default behavior; site owners lose explicit control over what AI bots can index.',
+      description:
+        'Without robots.txt crawlers fall back to default behavior; site owners lose explicit control over what AI bots can index.',
     });
   }
 
@@ -205,7 +210,8 @@ export const agentSignalsAnalyzer: Analyzer = (input): AnalyzerResult => {
         id: AS_FINDINGS.LLMS_TXT_INVALID,
         severity: 'low',
         title: 'llms.txt does not follow the proposed structure',
-        description: 'Per llmstxt.org the file should start with an H1 (# Title) and contain at least one ## section.',
+        description:
+          'Per llmstxt.org the file should start with an H1 (# Title) and contain at least one ## section.',
         evidence: snippet(input.llmsTxt, 200),
       });
     }
@@ -214,7 +220,8 @@ export const agentSignalsAnalyzer: Analyzer = (input): AnalyzerResult => {
         id: AS_FINDINGS.NO_LLMS_FULL,
         severity: 'info',
         title: 'llms.txt does not link to llms-full.txt',
-        description: 'Linking to a complete corpus (llms-full.txt) lets agents pull the full content without re-crawling.',
+        description:
+          'Linking to a complete corpus (llms-full.txt) lets agents pull the full content without re-crawling.',
       });
     }
   } else {
@@ -222,7 +229,8 @@ export const agentSignalsAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: AS_FINDINGS.NO_LLMS_TXT,
       severity: 'medium',
       title: 'No /llms.txt',
-      description: 'llms.txt is an emerging convention (llmstxt.org) for surfacing curated content paths to LLM agents.',
+      description:
+        'llms.txt is an emerging convention (llmstxt.org) for surfacing curated content paths to LLM agents.',
     });
   }
 
@@ -245,7 +253,8 @@ export const agentSignalsAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: AS_FINDINGS.NO_SITEMAP,
       severity: 'low',
       title: 'No sitemap.xml discovered',
-      description: 'A sitemap accelerates discovery for crawlers and is the canonical source of "what pages exist".',
+      description:
+        'A sitemap accelerates discovery for crawlers and is the canonical source of "what pages exist".',
     });
   }
 
@@ -270,7 +279,13 @@ export const agentSignalsAnalyzer: Analyzer = (input): AnalyzerResult => {
   }
 
   const score = clampScore(
-    robotsExistsScore + aiBotsScore + sitemapDirectiveScore + llmsExistsScore + llmsValidScore + sitemapScore + httpsScore,
+    robotsExistsScore +
+      aiBotsScore +
+      sitemapDirectiveScore +
+      llmsExistsScore +
+      llmsValidScore +
+      sitemapScore +
+      httpsScore,
   );
 
   return {

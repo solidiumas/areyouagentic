@@ -4,16 +4,16 @@ on:
   schedule:
     # Weekly, Monday 06:00 UTC. Lets us see new advisories at the start of
     # the week without competing with deploy windows.
-    - cron: "0 6 * * 1"
+    - cron: '0 6 * * 1'
   workflow_dispatch:
   pull_request:
     branches: [main]
     paths:
       # Only re-run CodeQL on PRs that touch source — config-only PRs don't
       # need the full ~10-minute scan.
-      - "apps/**"
-      - "packages/**"
-      - "pnpm-lock.yaml"
+      - 'apps/**'
+      - 'packages/**'
+      - 'pnpm-lock.yaml'
 
 env:
   NODE_VERSION: 20

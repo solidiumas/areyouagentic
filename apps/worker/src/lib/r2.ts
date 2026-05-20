@@ -4,10 +4,10 @@ import { env } from './env.js';
 function configured(): boolean {
   return Boolean(
     env.R2_ACCOUNT_ID &&
-      env.R2_ACCESS_KEY_ID &&
-      env.R2_SECRET_ACCESS_KEY &&
-      env.R2_BUCKET &&
-      env.R2_PUBLIC_URL,
+    env.R2_ACCESS_KEY_ID &&
+    env.R2_SECRET_ACCESS_KEY &&
+    env.R2_BUCKET &&
+    env.R2_PUBLIC_URL,
   );
 }
 
@@ -28,10 +28,7 @@ function client(): S3Client {
 
 export type R2UploadResult = { url: string } | { skipped: true };
 
-export async function uploadScreenshot(
-  key: string,
-  bytes: Buffer,
-): Promise<R2UploadResult> {
+export async function uploadScreenshot(key: string, bytes: Buffer): Promise<R2UploadResult> {
   if (!configured()) return { skipped: true };
   await client().send(
     new PutObjectCommand({

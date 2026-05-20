@@ -36,9 +36,9 @@ export const renderStage: Stage = async (ctx: AnalysisContext): Promise<Analysis
 
     const timing = await page.evaluate(() => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const nav = (performance.getEntriesByType as (type: string) => any[])(
-        'navigation',
-      )[0] as { responseStart: number; domContentLoadedEventEnd: number } | undefined;
+      const nav = (performance.getEntriesByType as (type: string) => any[])('navigation')[0] as
+        | { responseStart: number; domContentLoadedEventEnd: number }
+        | undefined;
       return nav
         ? { ttfb: nav.responseStart, dcl: nav.domContentLoadedEventEnd }
         : { ttfb: 0, dcl: 0 };
@@ -46,7 +46,7 @@ export const renderStage: Stage = async (ctx: AnalysisContext): Promise<Analysis
 
     const renderedHtml = await page.content();
 
-    const screenshotBytes = await page.screenshot({ fullPage: true, type: 'png' }) as Buffer;
+    const screenshotBytes = (await page.screenshot({ fullPage: true, type: 'png' })) as Buffer;
 
     const performanceMetrics = {
       ttfb: timing.ttfb,

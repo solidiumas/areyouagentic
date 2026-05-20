@@ -75,7 +75,10 @@ export function AnalyzingChecklist({ jobId }: { jobId: string }) {
         if (value !== last.value) {
           lastProgressRef.current = { value, at: Date.now() };
           setStalled(false);
-        } else if (Date.now() - last.at > STALE_PROGRESS_WARNING_MS && next.status !== 'COMPLETED') {
+        } else if (
+          Date.now() - last.at > STALE_PROGRESS_WARNING_MS &&
+          next.status !== 'COMPLETED'
+        ) {
           setStalled(true);
         }
 
@@ -114,7 +117,8 @@ export function AnalyzingChecklist({ jobId }: { jobId: string }) {
           <AlertTriangle className="h-4 w-4" aria-hidden />
           <AlertTitle>Analysis failed</AlertTitle>
           <AlertDescription>
-            {job?.errorMessage ?? "Something went wrong while analyzing this site. It may be unreachable or blocking bots."}
+            {job?.errorMessage ??
+              'Something went wrong while analyzing this site. It may be unreachable or blocking bots.'}
           </AlertDescription>
         </Alert>
         <Button asChild>
@@ -138,11 +142,7 @@ export function AnalyzingChecklist({ jobId }: { jobId: string }) {
         />
       </div>
 
-      <ol
-        aria-live="polite"
-        aria-atomic="false"
-        className="space-y-3"
-      >
+      <ol aria-live="polite" aria-atomic="false" className="space-y-3">
         {STEPS.map((step, i) => {
           const state = stepStates[i] ?? 'pending';
           return (
@@ -179,7 +179,10 @@ export function AnalyzingChecklist({ jobId }: { jobId: string }) {
           <AlertTitle>This is taking longer than expected</AlertTitle>
           <AlertDescription>
             The worker hasn&rsquo;t reported progress in the last minute. Hold on a bit, or
-            <Link href="/" className="ml-1 underline underline-offset-2">try another URL</Link>.
+            <Link href="/" className="ml-1 underline underline-offset-2">
+              try another URL
+            </Link>
+            .
           </AlertDescription>
         </Alert>
       ) : null}

@@ -23,7 +23,9 @@ const DEFAULT_METRICS: PerformanceMetrics = {
  * the fields it cares about. `rawHtml` defaults to `renderedHtml` (i.e. SSR);
  * tests that need a SPA-style mismatch override `rawHtml` explicitly.
  */
-export function makeInput(overrides: Partial<AnalysisInput> & { renderedHtml: string }): AnalysisInput {
+export function makeInput(
+  overrides: Partial<AnalysisInput> & { renderedHtml: string },
+): AnalysisInput {
   return {
     url: overrides.url ?? 'https://example.com/',
     finalUrl: overrides.finalUrl ?? 'https://example.com/',

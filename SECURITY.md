@@ -30,7 +30,7 @@ there.
 ## Threat model
 
 This is what we built the service to defend against. Anything not listed
-here is *out of scope* (which doesn't mean we don't care — just that we
+here is _out of scope_ (which doesn't mean we don't care — just that we
 haven't designed mitigations for it).
 
 ### In scope
@@ -57,7 +57,7 @@ haven't designed mitigations for it).
   we mitigate, not eliminate, abuse.
 - Phishing or social-engineering of operators.
 - Vulnerabilities in third-party dependencies we have not yet patched —
-  see *Known limitations* below.
+  see _Known limitations_ below.
 
 ## Mitigations in place
 
@@ -104,10 +104,10 @@ Additional defenses in `safeFetch`:
 
 **Known TOCTOU limitation:** between `dns.lookup` and the subsequent
 `fetch`, Node will resolve DNS again. A motivated attacker who controls a
-public DNS resolver and serves a *different* answer on the second lookup
+public DNS resolver and serves a _different_ answer on the second lookup
 could in principle bypass the gate. We do not pin the IP because Node's
 built-in `fetch` does not support custom resolvers. The URL-validator
-catches *literal* private addresses regardless, so the realistic attack
+catches _literal_ private addresses regardless, so the realistic attack
 surface is "hostname that returns different DNS answers within ms" —
 a high-effort attack against a low-value target.
 
@@ -118,7 +118,7 @@ a high-effort attack against a low-value target.
 - Request body limit: **10 KB** per request (also enforced at the route
   level on `POST /api/analyze`).
 - Path params validated against the cuid format (`/^c[a-z0-9]{20,32}$/`)
-  *before* any DB query, so malformed IDs cost a regex match, not a query.
+  _before_ any DB query, so malformed IDs cost a regex match, not a query.
 - **Rate limiting** (Redis-backed, per IP, via `@fastify/rate-limit`):
   - Global: 30 req/min/IP.
   - `POST /api/analyze`: 5 req/min/IP **and** 20 req/day/IP. Both must pass.
@@ -136,7 +136,7 @@ Health checks (`GET /health`) are exempt from rate-limiting.
   accept that since the site has no third-party scripts to expand the
   blast radius.
 - **HSTS** (`max-age=63072000; includeSubDomains; preload`) in production
-  only; *not* set in development to avoid pinning `localhost` to https.
+  only; _not_ set in development to avoid pinning `localhost` to https.
 - `Referrer-Policy: strict-origin-when-cross-origin`,
   `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
   `Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()`.
@@ -193,7 +193,7 @@ Health checks (`GET /health`) are exempt from rate-limiting.
 
 ## Known limitations
 
-These are weaknesses we have *not* mitigated, listed openly so reporters
+These are weaknesses we have _not_ mitigated, listed openly so reporters
 don't waste time and operators know what to watch for.
 
 - **No bot/CAPTCHA gate on `POST /api/analyze`.** Rate limiting is per-IP,

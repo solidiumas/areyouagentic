@@ -26,9 +26,7 @@ const envSchema = z.object({
   JOB_TIMEOUT_MS: z.coerce.number().int().positive().default(90_000),
 
   // Optional log level — defaults differ per NODE_ENV (see logger.ts).
-  LOG_LEVEL: z
-    .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
-    .optional(),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),
 
   // HTTP port for the in-process health server. The worker isn't an HTTP
   // service but the orchestrator needs a probe target — we bind a tiny

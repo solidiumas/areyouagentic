@@ -41,13 +41,16 @@ export const fetchStage: Stage = async (ctx: AnalysisContext) => {
     probe(`${origin}/sitemap.xml`),
   ]);
 
-  ctx.log.info({
-    finalUrl,
-    responseBytes: body.length,
-    hasRobots: robotsTxt !== null,
-    hasLlmsTxt: llmsTxt !== null,
-    hasSitemap: sitemapXml !== null,
-  }, 'fetch stage complete');
+  ctx.log.info(
+    {
+      finalUrl,
+      responseBytes: body.length,
+      hasRobots: robotsTxt !== null,
+      hasLlmsTxt: llmsTxt !== null,
+      hasSitemap: sitemapXml !== null,
+    },
+    'fetch stage complete',
+  );
 
   return { ...ctx, rawHtml, finalUrl, pageTitle, robotsTxt, llmsTxt, sitemapXml };
 };

@@ -12,9 +12,8 @@ const REQ_ID = 'x-request-id';
 
 export function middleware(req: NextRequest): NextResponse {
   const incoming = req.headers.get(REQ_ID);
-  const id = incoming && incoming.length > 0 && incoming.length <= 128
-    ? incoming
-    : crypto.randomUUID();
+  const id =
+    incoming && incoming.length > 0 && incoming.length <= 128 ? incoming : crypto.randomUUID();
 
   const requestHeaders = new Headers(req.headers);
   requestHeaders.set(REQ_ID, id);

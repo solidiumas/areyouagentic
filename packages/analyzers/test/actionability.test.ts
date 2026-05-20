@@ -63,7 +63,9 @@ describe('actionabilityAnalyzer', () => {
       <a href="/c">learn more</a>
       <a href="/d">more</a>
     </body></html>`;
-    const result = actionabilityAnalyzer(makeInput({ renderedHtml: html, finalUrl: 'https://example.com/' }));
+    const result = actionabilityAnalyzer(
+      makeInput({ renderedHtml: html, finalUrl: 'https://example.com/' }),
+    );
     expect(result.findings.map((f) => f.id)).toContain(AC_FINDINGS.WEAK_LINK_TEXT);
   });
 
@@ -90,6 +92,9 @@ describe('actionabilityAnalyzer', () => {
         finalUrl: 'https://acme.coffee/',
       }),
     );
-    expect({ score: result.score, findingIds: result.findings.map((f) => f.id).sort() }).toMatchSnapshot();
+    expect({
+      score: result.score,
+      findingIds: result.findings.map((f) => f.id).sort(),
+    }).toMatchSnapshot();
   });
 });

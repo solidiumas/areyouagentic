@@ -1,12 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma, prisma } from '@areyouagentic/db';
 import type { AnalyzerResult } from '@areyouagentic/analyzers';
-import type {
-  Dimension,
-  EvidenceItem,
-  Finding,
-  Recommendation,
-} from '@areyouagentic/shared';
+import type { Dimension, EvidenceItem, Finding, Recommendation } from '@areyouagentic/shared';
 import { uploadScreenshot } from '../../lib/r2.js';
 import type { AnalysisContext, Stage } from '../context.js';
 
@@ -115,7 +110,11 @@ export const persistStage: Stage = async (ctx: AnalysisContext) => {
   });
 
   ctx.log.info(
-    { findings: flatFindings.length, recommendations: recommendations.length, evidence: evidence.length },
+    {
+      findings: flatFindings.length,
+      recommendations: recommendations.length,
+      evidence: evidence.length,
+    },
     'persist stage complete',
   );
 

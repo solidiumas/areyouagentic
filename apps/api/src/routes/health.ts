@@ -35,9 +35,7 @@ export async function healthRoutes(app: FastifyInstance): Promise<void> {
         healthy = false;
       }
 
-      return reply
-        .code(healthy ? 200 : 503)
-        .send({ status: healthy ? 'ok' : 'degraded', checks });
+      return reply.code(healthy ? 200 : 503).send({ status: healthy ? 'ok' : 'degraded', checks });
     },
   );
 }

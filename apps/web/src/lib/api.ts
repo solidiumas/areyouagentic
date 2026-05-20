@@ -71,7 +71,11 @@ async function request<TResp>(
     });
   } catch (err) {
     if ((err as Error).name === 'AbortError') throw err;
-    throw new ApiClientError(0, 'NETWORK_ERROR', 'Could not reach the server. Check your connection and try again.');
+    throw new ApiClientError(
+      0,
+      'NETWORK_ERROR',
+      'Could not reach the server. Check your connection and try again.',
+    );
   }
 
   // Body may be empty on 204; we don't currently use that, but be defensive.
@@ -80,7 +84,12 @@ async function request<TResp>(
 
   if (!res.ok) {
     const parsed = parseError(json);
-    throw new ApiClientError(res.status, parsed.error.code, parsed.error.message, parsed.error.details);
+    throw new ApiClientError(
+      res.status,
+      parsed.error.code,
+      parsed.error.message,
+      parsed.error.details,
+    );
   }
 
   const result = responseSchema.safeParse(json);
@@ -133,7 +142,12 @@ export async function getJobStatus(
   jobId: string,
   options?: RequestOptions,
 ): Promise<JobStatusResponse> {
-  return request(`/api/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' }, jobStatusResponseSchema, options);
+  return request(
+    `/api/jobs/${encodeURIComponent(jobId)}`,
+    { method: 'GET' },
+    jobStatusResponseSchema,
+    options,
+  );
 }
 
 export async function getReport(

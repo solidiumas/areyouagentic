@@ -19,7 +19,9 @@ describe('contentClarityAnalyzer', () => {
   });
 
   it('flags a too-short title and too-short meta description on the marketing-thin fixture', () => {
-    const result = contentClarityAnalyzer(makeInput({ renderedHtml: loadFixture('marketing-thin.html') }));
+    const result = contentClarityAnalyzer(
+      makeInput({ renderedHtml: loadFixture('marketing-thin.html') }),
+    );
     const ids = result.findings.map((f) => f.id);
     expect(ids).toContain(CC_FINDINGS.TITLE_TOO_SHORT);
     expect(ids).toContain(CC_FINDINGS.META_DESC_TOO_SHORT);
@@ -27,7 +29,9 @@ describe('contentClarityAnalyzer', () => {
   });
 
   it('credits a substantial blog article with high word count and decent readability', () => {
-    const result = contentClarityAnalyzer(makeInput({ renderedHtml: loadFixture('blog-article.html') }));
+    const result = contentClarityAnalyzer(
+      makeInput({ renderedHtml: loadFixture('blog-article.html') }),
+    );
     expect(result.score).toBeGreaterThan(70);
     const m = result.metrics as { mainWordCount: number; flesch: number };
     expect(m.mainWordCount).toBeGreaterThan(150);
@@ -62,6 +66,9 @@ describe('contentClarityAnalyzer', () => {
 
   it('produces a stable snapshot for the ideal fixture', () => {
     const result = contentClarityAnalyzer(makeInput({ renderedHtml: loadFixture('ideal.html') }));
-    expect({ score: result.score, findingIds: result.findings.map((f) => f.id).sort() }).toMatchSnapshot();
+    expect({
+      score: result.score,
+      findingIds: result.findings.map((f) => f.id).sort(),
+    }).toMatchSnapshot();
   });
 });

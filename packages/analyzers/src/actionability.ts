@@ -28,7 +28,8 @@ const WEAK_TEXTS = new Set([
   'ok',
 ]);
 
-const HASH_CLASS_RE = /^[a-z0-9_-]*[A-Za-z]+_[A-Za-z0-9]{4,}$|^css-[a-z0-9]{5,}$|^[a-z]{2,4}-[a-z0-9]{6,}$/;
+const HASH_CLASS_RE =
+  /^[a-z0-9_-]*[A-Za-z]+_[A-Za-z0-9]{4,}$|^css-[a-z0-9]{5,}$|^[a-z]{2,4}-[a-z0-9]{6,}$/;
 
 function looksLikeHashedClass(cls: string): boolean {
   // Heuristic: hashed class names tend to be short, contain digits + letters,
@@ -54,7 +55,9 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
   const $ = loadHtml(input.renderedHtml);
 
   // ── Forms: inputs ────────────────────────────────────────────────
-  const inputs = $('input:not([type=hidden]):not([type=submit]):not([type=button]), textarea, select');
+  const inputs = $(
+    'input:not([type=hidden]):not([type=submit]):not([type=button]), textarea, select',
+  );
   const totalInputs = inputs.length;
   let labeled = 0;
   let withName = 0;
@@ -87,7 +90,8 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
         id: AC_FINDINGS.INPUTS_MISSING_LABEL,
         severity: labelRatio < 0.5 ? 'high' : 'medium',
         title: `${totalInputs - labeled}/${totalInputs} form inputs lack a label`,
-        description: 'Inputs need a <label for>, wrapping <label>, aria-label, or aria-labelledby. Agents fill forms by matching field semantics, not coordinates.',
+        description:
+          'Inputs need a <label for>, wrapping <label>, aria-label, or aria-labelledby. Agents fill forms by matching field semantics, not coordinates.',
       });
     }
 
@@ -98,7 +102,8 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
         id: AC_FINDINGS.INPUTS_MISSING_NAME,
         severity: 'medium',
         title: `${totalInputs - withName}/${totalInputs} inputs missing name or id`,
-        description: 'Both name and id are needed: name for submission, id for label association and stable targeting.',
+        description:
+          'Both name and id are needed: name for submission, id for label association and stable targeting.',
       });
     }
 
@@ -109,7 +114,8 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
         id: AC_FINDINGS.INPUTS_NO_AUTOCOMPLETE,
         severity: 'low',
         title: 'Most inputs do not declare autocomplete',
-        description: 'Standard autocomplete tokens (email, name, tel, address-line1, …) let browsers and agents auto-fill safely.',
+        description:
+          'Standard autocomplete tokens (email, name, tel, address-line1, …) let browsers and agents auto-fill safely.',
       });
     }
   }
@@ -132,14 +138,17 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
         id: AC_FINDINGS.WEAK_SUBMIT_TEXT,
         severity: 'low',
         title: `${totalSubmits - goodSubmitText}/${totalSubmits} submit buttons have generic text`,
-        description: 'Replace "Submit" / "Go" with a verb that describes the action ("Create account", "Send message").',
+        description:
+          'Replace "Submit" / "Go" with a verb that describes the action ("Create account", "Send message").',
       });
     }
   }
 
   // ── Buttons vs clickable divs ────────────────────────────────────
   const realButtons = $('button, a[href], input[type=submit], input[type=button]').length;
-  const clickableDivs = $('div[onclick], span[onclick], div[role=button], span[role=button]').length;
+  const clickableDivs = $(
+    'div[onclick], span[onclick], div[role=button], span[role=button]',
+  ).length;
   let buttonScore: number;
   if (clickableDivs === 0) {
     buttonScore = 15;
@@ -151,7 +160,8 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: AC_FINDINGS.CLICKABLE_DIV_INSTEAD_OF_BUTTON,
       severity: 'medium',
       title: `${clickableDivs} clickable <div>/<span> elements found`,
-      description: 'Use real <button> or <a> for actions; otherwise keyboard users and agents can\'t reliably trigger them.',
+      description:
+        "Use real <button> or <a> for actions; otherwise keyboard users and agents can't reliably trigger them.",
     });
   }
 
@@ -189,7 +199,8 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
       const idx = Math.floor(i * stride);
       const $el = allInteractive.eq(idx);
       const id = $el.attr('id');
-      const attribs = ($el.get(0) as { attribs?: Record<string, string> } | undefined)?.attribs ?? {};
+      const attribs =
+        ($el.get(0) as { attribs?: Record<string, string> } | undefined)?.attribs ?? {};
       const hasDataAttr = Object.keys(attribs).some((k) => k.startsWith('data-'));
       const cls = $el.attr('class') ?? '';
       const allClassesHashed = cls.length > 0 && cls.split(/\s+/).every(looksLikeHashedClass);
@@ -209,7 +220,8 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: AC_FINDINGS.UNSTABLE_SELECTORS,
       severity: 'medium',
       title: 'Most interactive elements have only hashed class names',
-      description: 'Add stable id or data-testid / data-* attributes so agents and tests can target elements without screen-coordinate guessing.',
+      description:
+        'Add stable id or data-testid / data-* attributes so agents and tests can target elements without screen-coordinate guessing.',
     });
   }
 
@@ -227,7 +239,8 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: AC_FINDINGS.IMAGES_MISSING_ALT,
       severity: 'medium',
       title: `${images.length - withAlt}/${images.length} images missing alt attribute`,
-      description: 'Use alt="" for decorative images and a description for informative ones. Required for screen readers and useful to agents.',
+      description:
+        'Use alt="" for decorative images and a description for informative ones. Required for screen readers and useful to agents.',
     });
   }
 
@@ -244,7 +257,8 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: AC_FINDINGS.NO_SKIP_LINK,
       severity: 'info',
       title: 'No "skip to content" link found',
-      description: 'A skip link is a small accessibility win and gives agents a fast path to the main content.',
+      description:
+        'A skip link is a small accessibility win and gives agents a fast path to the main content.',
     });
   }
 
@@ -257,7 +271,8 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: AC_FINDINGS.NON_READABLE_URL,
       severity: 'low',
       title: 'URL contains session IDs, uppercase, or random tokens',
-      description: 'Readable, lowercase, hyphenated paths are easier for agents to reason about and quote in answers.',
+      description:
+        'Readable, lowercase, hyphenated paths are easier for agents to reason about and quote in answers.',
       evidence: snippet(input.finalUrl, 120),
     });
   }

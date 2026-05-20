@@ -36,8 +36,10 @@ export function normalizeUrl(input: string | URL): string {
   url.hostname = url.hostname.toLowerCase();
 
   // Strip default ports for http(s).
-  if ((url.protocol === 'http:' && url.port === '80') ||
-      (url.protocol === 'https:' && url.port === '443')) {
+  if (
+    (url.protocol === 'http:' && url.port === '80') ||
+    (url.protocol === 'https:' && url.port === '443')
+  ) {
     url.port = '';
   }
 

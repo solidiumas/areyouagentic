@@ -98,7 +98,11 @@ async function wrapWithSentry(cfg: NextConfig): Promise<NextConfig> {
   if (!process.env.NEXT_PUBLIC_SENTRY_DSN && !process.env.SENTRY_DSN) return cfg;
   try {
     const mod = await import('@sentry/nextjs');
-    const withSentryConfig = (mod as unknown as { withSentryConfig: (c: NextConfig, opts: Record<string, unknown>) => NextConfig }).withSentryConfig;
+    const withSentryConfig = (
+      mod as unknown as {
+        withSentryConfig: (c: NextConfig, opts: Record<string, unknown>) => NextConfig;
+      }
+    ).withSentryConfig;
     return withSentryConfig(cfg, {
       silent: true,
       org: process.env.SENTRY_ORG,

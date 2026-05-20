@@ -2,7 +2,11 @@ import { UnrecoverableError, Worker, type Job, type WorkerOptions } from 'bullmq
 import type { Redis } from 'ioredis';
 import { env } from './lib/env.js';
 import { logger } from './lib/logger.js';
-import { ANALYSIS_QUEUE_NAME, type AnalysisJobPayload, createRedisConnection } from './lib/queue.js';
+import {
+  ANALYSIS_QUEUE_NAME,
+  type AnalysisJobPayload,
+  createRedisConnection,
+} from './lib/queue.js';
 import { captureException } from './lib/sentry.js';
 import { runAnalysis } from './pipeline/runAnalysis.js';
 import { PermanentJobError } from './pipeline/context.js';
@@ -79,10 +83,7 @@ export function createAnalysisWorker(): AnalysisWorker {
     // through UnrecoverableError. BullMQ also recognises errors thrown as
     // UnrecoverableError directly; we throw PermanentJobError from stages so
     // the rest of the codebase doesn't need to import BullMQ's error types.
-    logger.error(
-      { jobId: job?.id, err, attemptsMade: job?.attemptsMade },
-      'job failed',
-    );
+    logger.error({ jobId: job?.id, err, attemptsMade: job?.attemptsMade }, 'job failed');
     // Only report to Sentry once retries are exhausted — flapping jobs would
     // otherwise produce spam. `attemptsMade >= attempts` means BullMQ won't
     // try again.
@@ -101,4 +102,3 @@ export function createAnalysisWorker(): AnalysisWorker {
 
   return { worker, connection };
 }
-

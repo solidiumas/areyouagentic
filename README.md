@@ -84,16 +84,16 @@ Turborepo will start all apps that have a `dev` script in parallel.
 
 ## Common scripts
 
-| Command            | What it does                                    |
-| ------------------ | ----------------------------------------------- |
-| `pnpm dev`         | Run all apps in dev mode                        |
-| `pnpm build`       | Build everything (Turbo handles dep order)      |
-| `pnpm lint`        | ESLint across the monorepo                      |
-| `pnpm typecheck`   | `tsc --noEmit` in every workspace               |
-| `pnpm test`        | Run all test suites                             |
-| `pnpm format`      | Prettier write                                  |
-| `pnpm format:check`| Prettier check (used in CI)                     |
-| `pnpm clean`       | Remove build artifacts and `node_modules`       |
+| Command             | What it does                               |
+| ------------------- | ------------------------------------------ |
+| `pnpm dev`          | Run all apps in dev mode                   |
+| `pnpm build`        | Build everything (Turbo handles dep order) |
+| `pnpm lint`         | ESLint across the monorepo                 |
+| `pnpm typecheck`    | `tsc --noEmit` in every workspace          |
+| `pnpm test`         | Run all test suites                        |
+| `pnpm format`       | Prettier write                             |
+| `pnpm format:check` | Prettier check (used in CI)                |
+| `pnpm clean`        | Remove build artifacts and `node_modules`  |
 
 To run a script in a single workspace:
 
@@ -142,11 +142,11 @@ Three Dockerfiles, each a multi-stage build that copies a self-contained
 `pnpm deploy` tree into a minimal runtime image, runs as a non-root user,
 and ships a `HEALTHCHECK`:
 
-| App      | Base image                                | Approx size |
-|----------|-------------------------------------------|-------------|
-| `web`    | `node:20-alpine` (Next.js standalone)     | ~150 MB     |
-| `api`    | `node:20-alpine` + prisma engines         | ~200 MB     |
-| `worker` | `mcr.microsoft.com/playwright:v1.48.2-jammy` (Chromium + Node) | ~1.6 GB |
+| App      | Base image                                                     | Approx size |
+| -------- | -------------------------------------------------------------- | ----------- |
+| `web`    | `node:20-alpine` (Next.js standalone)                          | ~150 MB     |
+| `api`    | `node:20-alpine` + prisma engines                              | ~200 MB     |
+| `worker` | `mcr.microsoft.com/playwright:v1.48.2-jammy` (Chromium + Node) | ~1.6 GB     |
 
 Build the whole stack locally:
 
@@ -166,11 +166,11 @@ docker build -f apps/web/Dockerfile    -t areyouagentic-web    .
 
 ## CI / CD
 
-| Workflow                                        | Trigger                          | Job                                                                 |
-|-------------------------------------------------|----------------------------------|----------------------------------------------------------------------|
-| [`ci.yml`](.github/workflows/ci.yml)            | push & PR to `main`              | lint / typecheck / build / test, plus Docker build for all three apps |
-| [`deploy.yml`](.github/workflows/deploy.yml)    | manual (`workflow_dispatch`)     | bump root version, tag, push images to GHCR, cut a GitHub release    |
-| [`security.yml`](.github/workflows/security.yml)| weekly cron + PR (path-filtered) | `pnpm audit --prod` + CodeQL (security-extended)                     |
+| Workflow                                         | Trigger                          | Job                                                                   |
+| ------------------------------------------------ | -------------------------------- | --------------------------------------------------------------------- |
+| [`ci.yml`](.github/workflows/ci.yml)             | push & PR to `main`              | lint / typecheck / build / test, plus Docker build for all three apps |
+| [`deploy.yml`](.github/workflows/deploy.yml)     | manual (`workflow_dispatch`)     | bump root version, tag, push images to GHCR, cut a GitHub release     |
+| [`security.yml`](.github/workflows/security.yml) | weekly cron + PR (path-filtered) | `pnpm audit --prod` + CodeQL (security-extended)                      |
 
 ## Deploy targets
 
@@ -178,14 +178,14 @@ We split responsibilities so each piece runs where it fits best. None of
 this is wired up automatically — the **Deploy** workflow only publishes
 images and tags. Pointing platforms at those tags is one-time setup.
 
-| Component | Recommended                       | Alternative              |
-|-----------|-----------------------------------|---------------------------|
-| Web       | **Vercel** (auto-deploys on tag)  | Self-host via `apps/web/Dockerfile` |
-| API       | **Railway** or **Fly.io**         | Any container host        |
+| Component | Recommended                                                | Alternative                                |
+| --------- | ---------------------------------------------------------- | ------------------------------------------ |
+| Web       | **Vercel** (auto-deploys on tag)                           | Self-host via `apps/web/Dockerfile`        |
+| API       | **Railway** or **Fly.io**                                  | Any container host                         |
 | Worker    | **Railway** or **Fly.io** with autoscaling (≥ 2 instances) | Any container host with Playwright support |
-| Database  | **Neon** (point-in-time recovery) | **Supabase**, self-hosted Postgres 16 |
-| Redis     | **Upstash** (TLS-only, AOF on)    | Self-hosted Redis 7       |
-| Storage   | **Cloudflare R2** (S3-compatible) | Any S3-compatible bucket  |
+| Database  | **Neon** (point-in-time recovery)                          | **Supabase**, self-hosted Postgres 16      |
+| Redis     | **Upstash** (TLS-only, AOF on)                             | Self-hosted Redis 7                        |
+| Storage   | **Cloudflare R2** (S3-compatible)                          | Any S3-compatible bucket                   |
 
 ### Backups
 

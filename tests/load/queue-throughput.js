@@ -39,14 +39,10 @@ export const options = {
 
 function enqueue() {
   const url = `https://example.com/throughput-${randomString(16)}`;
-  const res = http.post(
-    `${API_URL}/api/analyze`,
-    JSON.stringify({ url }),
-    {
-      headers: { 'Content-Type': 'application/json' },
-      tags: { name: 'enqueue' },
-    },
-  );
+  const res = http.post(`${API_URL}/api/analyze`, JSON.stringify({ url }), {
+    headers: { 'Content-Type': 'application/json' },
+    tags: { name: 'enqueue' },
+  });
   if (res.status !== 202 && res.status !== 200) {
     return null;
   }
