@@ -8,11 +8,15 @@ overrides:
   fast-uri: '>=3.1.2'
   esbuild: '>=0.25.0'
   postcss: '>=8.5.10'
+  rollup: '>=3.30.0'
 
 importers:
 
   .:
     devDependencies:
+      '@areyouagentic/config':
+        specifier: workspace:*
+        version: link:packages/config
       '@types/node':
         specifier: ^20.16.11
         version: 20.19.41
@@ -208,8 +212,8 @@ importers:
         specifier: ^11.3.0
         version: 11.3.0
       playwright:
-        specifier: 1.48.2
-        version: 1.48.2
+        specifier: 1.55.1
+        version: 1.55.1
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -1509,7 +1513,7 @@ packages:
     resolution: {integrity: sha512-+tNWdlWKbpB3WgBN7ijjYkq9X5uhjmcvyjEght4NmH5fAU++zfQzAJ6wumLS+dNcvwEZhKx2Z+skY8m7v0wGSA==}
     engines: {node: '>=16.0.0 || 14 >= 14.17'}
     peerDependencies:
-      rollup: ^2.68.0||^3.0.0||^4.0.0
+      rollup: '>=3.30.0'
     peerDependenciesMeta:
       rollup:
         optional: true
@@ -1518,7 +1522,7 @@ packages:
     resolution: {integrity: sha512-5EdhGZtnu3V88ces7s53hhfK5KSASnJZv8Lulpc04cWO3REESroJXg73DFsOmgbU2BhwV0E20bu2IDZb3VKW4Q==}
     engines: {node: '>=14.0.0'}
     peerDependencies:
-      rollup: ^1.20.0||^2.0.0||^3.0.0||^4.0.0
+      rollup: '>=3.30.0'
     peerDependenciesMeta:
       rollup:
         optional: true
@@ -3683,8 +3687,8 @@ packages:
   pkg-types@2.3.1:
     resolution: {integrity: sha512-y+ichcgc2LrADuhLNAx8DFjVfgz91pRxfZdI3UDhxHvcVEZsenLO+7XaU5vOp0u/7V/wZ+plyuQxtrDlZJ+yeg==}
 
-  playwright-core@1.48.2:
-    resolution: {integrity: sha512-sjjw+qrLFlriJo64du+EK0kJgZzoQPsabGF4lBvsid+3CNIZIYLgnMj9V6JY5VhM2Peh20DJWIVpVljLLnlawA==}
+  playwright-core@1.55.1:
+    resolution: {integrity: sha512-Z6Mh9mkwX+zxSlHqdr5AOcJnfp+xUWLCt9uKV18fhzA8eyxUd8NUWzAjxUh55RZKSYwDGX0cfaySdhZJGMoJ+w==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -3693,8 +3697,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright@1.48.2:
-    resolution: {integrity: sha512-NjYvYgp4BPmiwfe31j4gHLa3J7bD2WiBz8Lk2RoSsmX38SVIARZ18VYjxLjAcDsAhA+F4iSEXTSGgjua0rrlgQ==}
+  playwright@1.55.1:
+    resolution: {integrity: sha512-cJW4Xd/G3v5ovXtJJ52MAOclqeac9S/aGGgRzLabuF8TnIb6xHvMzKIa6JmrRzUkeXJgfL1MhukP0NK6l39h3A==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -3920,11 +3924,6 @@ packages:
 
   rfdc@1.4.1:
     resolution: {integrity: sha512-q1b3N5QkRUWUl7iyylaaj3kOpIT0N2i9MqIEQXP73GVsN9cw3fdx8X63cEmWhJGi2PPCF23Ijp7ktmd39rawIA==}
-
-  rollup@3.29.5:
-    resolution: {integrity: sha512-GVsDdsbJzzy4S/v3dqWPJ7EfvZJfCHiDqe80IyrF59LYuP+e6U1LJoUqeuqRbwAWoMNoXivMNeNAOf5E22VA1w==}
-    engines: {node: '>=14.18.0', npm: '>=8.0.0'}
-    hasBin: true
 
   rollup@4.60.4:
     resolution: {integrity: sha512-WHeFSbZYsPu3+bLoNRUuAO+wavNlocOPf3wSHTP7hcFKVnJeWsYlCDbr3mTS14FCizf9ccIxXA8sGL8zKeQN3g==}
@@ -5804,9 +5803,9 @@ snapshots:
     optionalDependencies:
       '@types/react': types-react@19.0.0-rc.1
 
-  '@rollup/plugin-commonjs@28.0.1(rollup@3.29.5)':
+  '@rollup/plugin-commonjs@28.0.1(rollup@4.60.4)':
     dependencies:
-      '@rollup/pluginutils': 5.3.0(rollup@3.29.5)
+      '@rollup/pluginutils': 5.3.0(rollup@4.60.4)
       commondir: 1.0.1
       estree-walker: 2.0.2
       fdir: 6.5.0(picomatch@4.0.4)
@@ -5814,15 +5813,15 @@ snapshots:
       magic-string: 0.30.21
       picomatch: 4.0.4
     optionalDependencies:
-      rollup: 3.29.5
+      rollup: 4.60.4
 
-  '@rollup/pluginutils@5.3.0(rollup@3.29.5)':
+  '@rollup/pluginutils@5.3.0(rollup@4.60.4)':
     dependencies:
       '@types/estree': 1.0.9
       estree-walker: 2.0.2
       picomatch: 4.0.4
     optionalDependencies:
-      rollup: 3.29.5
+      rollup: 4.60.4
 
   '@rollup/rollup-android-arm-eabi@4.60.4':
     optional: true
@@ -5991,7 +5990,7 @@ snapshots:
     dependencies:
       '@opentelemetry/api': 1.9.1
       '@opentelemetry/semantic-conventions': 1.41.1
-      '@rollup/plugin-commonjs': 28.0.1(rollup@3.29.5)
+      '@rollup/plugin-commonjs': 28.0.1(rollup@4.60.4)
       '@sentry-internal/browser-utils': 8.55.2
       '@sentry/core': 8.55.2
       '@sentry/node': 8.55.2
@@ -6002,7 +6001,7 @@ snapshots:
       chalk: 3.0.0
       next: 15.5.18(@babel/core@7.29.0)(@opentelemetry/api@1.9.1)(@playwright/test@1.60.0)(react-dom@19.0.0-rc-66855b96-20241106(react@19.0.0-rc-66855b96-20241106))(react@19.0.0-rc-66855b96-20241106)
       resolve: 1.22.8
-      rollup: 3.29.5
+      rollup: 4.60.4
       stacktrace-parser: 0.1.11
     transitivePeerDependencies:
       - '@opentelemetry/context-async-hooks'
@@ -8268,13 +8267,13 @@ snapshots:
       exsolve: 1.0.8
       pathe: 2.0.3
 
-  playwright-core@1.48.2: {}
+  playwright-core@1.55.1: {}
 
   playwright-core@1.60.0: {}
 
-  playwright@1.48.2:
+  playwright@1.55.1:
     dependencies:
-      playwright-core: 1.48.2
+      playwright-core: 1.55.1
     optionalDependencies:
       fsevents: 2.3.2
 
@@ -8481,10 +8480,6 @@ snapshots:
   reusify@1.1.0: {}
 
   rfdc@1.4.1: {}
-
-  rollup@3.29.5:
-    optionalDependencies:
-      fsevents: 2.3.3
 
   rollup@4.60.4:
     dependencies:
