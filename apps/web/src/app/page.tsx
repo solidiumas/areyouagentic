@@ -82,8 +82,13 @@ export default function HomePage() {
               <UrlForm />
             </div>
 
-            <p className="mt-8 text-sm text-muted-foreground" aria-live="polite">
-              <span className="font-semibold text-foreground">2,143</span> sites analyzed this week
+            <p className="mt-8 text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">Beta:</span> we&rsquo;d love your
+              feedback —{' '}
+              <a href={siteConfig.links.feedback} className="underline hover:text-foreground">
+                send a note
+              </a>
+              .
             </p>
           </div>
         </div>

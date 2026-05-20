@@ -7,8 +7,11 @@ export const siteConfig = {
   url: process.env.NEXT_PUBLIC_APP_URL ?? 'https://areyouagentic.com',
   ogImage: '/opengraph-image.png',
   twitter: '@areyouagentic',
+  /** Release stage. Drives the beta badge in the header. */
+  stage: 'beta' as 'beta' | 'stable',
   links: {
     github: 'https://github.com/areyouagentic',
+    feedback: 'mailto:hello@areyouagentic.com?subject=areyouagentic.com%20beta%20feedback',
   },
 } as const;
 
