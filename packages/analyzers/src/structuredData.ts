@@ -198,7 +198,7 @@ export const structuredDataAnalyzer: Analyzer = (input): AnalyzerResult => {
     if (prop && content) ogPresent[prop] = content;
   });
   const ogPresentCount = REQUIRED_OG.filter((k) => ogPresent[k]).length;
-  let ogScore = ogPresentCount * 4;
+  const ogScore = ogPresentCount * 4;
   if (ogPresentCount === 0) {
     findings.push({
       id: SD_FINDINGS.MISSING_OG_TAGS,

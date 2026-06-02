@@ -1,9 +1,9 @@
 /**
  * Ad-hoc local demo. Enqueues one analysis job, starts the worker, waits for
- * the job to finish, prints the report, then exits.
- *
- * Usage: pnpm --filter @areyouagentic/worker exec tsx src/scripts/demo.ts <url>
+ * the job to finish, prints the report, then exits. CLI tool — console output
+ * is the entire point, so we disable no-console for the file.
  */
+/* eslint-disable no-console */
 import { JobStatus, prisma } from '@areyouagentic/db';
 import { Queue } from 'bullmq';
 import {

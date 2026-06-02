@@ -123,7 +123,7 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
   // ── Submit buttons ───────────────────────────────────────────────
   const submitButtons = $('button[type=submit], input[type=submit], button:not([type])');
   let goodSubmitText = 0;
-  let totalSubmits = submitButtons.length;
+  const totalSubmits = submitButtons.length;
   submitButtons.each((_, el) => {
     const $el = $(el);
     const text = ($el.is('input') ? $el.attr('value') : $el.text()) ?? '';
@@ -214,7 +214,7 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
     }
   }
   const stabilityRatio = sampleSize === 0 ? 1 : stableCount / sampleSize;
-  let stabilityScore = Math.round(stabilityRatio * 10);
+  const stabilityScore = Math.round(stabilityRatio * 10);
   if (sampleSize >= 5 && stabilityRatio < 0.4) {
     findings.push({
       id: AC_FINDINGS.UNSTABLE_SELECTORS,
@@ -233,7 +233,7 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
     if (alt !== undefined) withAlt++;
   });
   const altRatio = images.length === 0 ? 1 : withAlt / images.length;
-  let altScore = Math.round(altRatio * 10);
+  const altScore = Math.round(altRatio * 10);
   if (images.length > 0 && altRatio < 0.9) {
     findings.push({
       id: AC_FINDINGS.IMAGES_MISSING_ALT,
@@ -326,7 +326,7 @@ export const actionabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
 };
 
 function cssEscape(value: string): string {
-  return value.replace(/[\\"\]\[]/g, '\\$&');
+  return value.replace(/[\\"\][]/g, '\\$&');
 }
 
 function isReadableUrl(raw: string): boolean {

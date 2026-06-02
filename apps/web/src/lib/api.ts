@@ -10,7 +10,7 @@ import {
   type JobStatusResponse,
   type ReportResponse,
 } from '@areyouagentic/shared';
-import { z } from 'zod';
+import type { ZodType } from 'zod';
 
 /**
  * Where the browser sends API requests. Same-origin by default — keeps cookies
@@ -46,7 +46,7 @@ type RequestOptions = {
 async function request<TResp>(
   path: string,
   init: RequestInit,
-  responseSchema: z.ZodType<TResp>,
+  responseSchema: ZodType<TResp>,
   { signal }: RequestOptions = {},
 ): Promise<TResp> {
   // Mint a request id so the browser can quote it when reporting issues and

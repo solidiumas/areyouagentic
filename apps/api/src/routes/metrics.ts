@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
-import { JobStatus, Prisma, prisma } from '@areyouagentic/db';
+import { Prisma, prisma } from '@areyouagentic/db';
+import type { JobStatus } from '@areyouagentic/db';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { env } from '../lib/env.js';
 

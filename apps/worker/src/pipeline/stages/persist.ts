@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { Prisma, prisma } from '@areyouagentic/db';
+import { prisma } from '@areyouagentic/db';
+import type { Prisma } from '@areyouagentic/db';
 import type { AnalyzerResult } from '@areyouagentic/analyzers';
 import type { Dimension, EvidenceItem, Finding, Recommendation } from '@areyouagentic/shared';
 import { uploadScreenshot } from '../../lib/r2.js';

@@ -12,7 +12,7 @@ import {
   findingsSchema,
   recommendationsSchema,
 } from '@areyouagentic/shared';
-import { JobStatus, Prisma, PrismaClient } from '@prisma/client';
+import { JobStatus, type Prisma, PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
