@@ -8,7 +8,8 @@ import {
   type AnalysisInput,
   type AnalyzerResult,
 } from '@areyouagentic/analyzers';
-import type { Dimension } from '@areyouagentic/shared';
+import { GRADE_THRESHOLDS, SCORE_WEIGHTS, type Dimension, type Grade } from '@areyouagentic/shared';
+import { llmAnalyze, llmConfigured } from '../../lib/llm.js';
 import type { AnalysisContext, Stage } from '../context.js';
 
 function requireField<T>(value: T | undefined | null, name: string): T {
@@ -16,6 +17,31 @@ function requireField<T>(value: T | undefined | null, name: string): T {
     throw new Error(`analyze: ctx.${name} missing — pipeline ordering bug`);
   }
   return value;
+}
+
+/**
+ * Mirror of score-stage logic, but run here so the LLM gets the same grade the
+ * user will see. score-stage will compute these again — they're idempotent and
+ * the cost is microscopic next to the LLM call.
+ */
+function quickGrade(findings: Record<Dimension, AnalyzerResult>): {
+  overall: number;
+  grade: Grade;
+} {
+  const weighted =
+    findings.machineReadability.score * SCORE_WEIGHTS.machineReadability +
+    findings.structuredData.score * SCORE_WEIGHTS.structuredData +
+    findings.agentSignals.score * SCORE_WEIGHTS.agentSignals +
+    findings.actionability.score * SCORE_WEIGHTS.actionability +
+    findings.performance.score * SCORE_WEIGHTS.performance +
+    findings.contentClarity.score * SCORE_WEIGHTS.contentClarity;
+  const overall = Math.round(weighted);
+  let grade: Grade = 'F';
+  if (overall >= GRADE_THRESHOLDS.A) grade = 'A';
+  else if (overall >= GRADE_THRESHOLDS.B) grade = 'B';
+  else if (overall >= GRADE_THRESHOLDS.C) grade = 'C';
+  else if (overall >= GRADE_THRESHOLDS.D) grade = 'D';
+  return { overall, grade };
 }
 
 export const analyzeStage: Stage = async (ctx: AnalysisContext) => {
@@ -39,6 +65,14 @@ export const analyzeStage: Stage = async (ctx: AnalysisContext) => {
     contentClarity: contentClarityAnalyzer(input),
   };
 
+  const totalFindings =
+    findings.machineReadability.findings.length +
+    findings.structuredData.findings.length +
+    findings.agentSignals.findings.length +
+    findings.actionability.findings.length +
+    findings.performance.findings.length +
+    findings.contentClarity.findings.length;
+
   ctx.log.info(
     {
       machineReadability: findings.machineReadability.score,
@@ -47,16 +81,47 @@ export const analyzeStage: Stage = async (ctx: AnalysisContext) => {
       actionability: findings.actionability.score,
       performance: findings.performance.score,
       contentClarity: findings.contentClarity.score,
-      totalFindings:
-        findings.machineReadability.findings.length +
-        findings.structuredData.findings.length +
-        findings.agentSignals.findings.length +
-        findings.actionability.findings.length +
-        findings.performance.findings.length +
-        findings.contentClarity.findings.length,
+      totalFindings,
     },
-    'analyze stage complete',
+    'deterministic analysis complete',
   );
 
-  return { ...ctx, findings };
+  // LLM narrative on top — only if a key is configured. We compute a quick
+  // overall grade so the prompt carries the same signal the user will see in
+  // the report header.
+  let llmInsight = null;
+  if (llmConfigured()) {
+    const { overall, grade } = quickGrade(findings);
+    const topFindings = Object.values(findings)
+      .flatMap((r) => r.findings)
+      .filter((f) => f.severity === 'high' || f.severity === 'medium')
+      .slice(0, 8)
+      .map((f) => ({ id: f.id, severity: f.severity, title: f.title }));
+
+    llmInsight = await llmAnalyze(
+      {
+        dimensionScores: {
+          machineReadability: findings.machineReadability.score,
+          structuredData: findings.structuredData.score,
+          agentSignals: findings.agentSignals.score,
+          actionability: findings.actionability.score,
+          performance: findings.performance.score,
+          contentClarity: findings.contentClarity.score,
+        },
+        overall,
+        grade,
+        pageTitle: ctx.pageTitle ?? null,
+        finalUrl: ctx.finalUrl ?? ctx.url,
+        topFindings,
+        hasRobotsTxt: Boolean(ctx.robotsTxt),
+        hasLlmsTxt: Boolean(ctx.llmsTxt),
+        hasSitemap: Boolean(ctx.sitemapXml),
+      },
+      ctx.log,
+    );
+  } else {
+    ctx.log.info('llm not configured — skipping narrative');
+  }
+
+  return { ...ctx, findings, llmInsight };
 };

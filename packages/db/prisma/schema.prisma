@@ -62,6 +62,12 @@ model Report {
   pageTitle String?
   finalUrl  String
 
+  // LLM-generated narrative laid over the deterministic findings.
+  // verdict: one-sentence summary; quickWins: ≤3 highest-leverage fixes.
+  // Null when no Anthropic key is configured at analysis time.
+  llmVerdict   String?
+  llmQuickWins Json? // string[]
+
   createdAt DateTime @default(now())
 
   @@index([overallScore])

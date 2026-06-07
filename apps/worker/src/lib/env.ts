@@ -6,7 +6,11 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
 
-  ANTHROPIC_API_KEY: z.string().min(1),
+  // Optional: when present, analyze stage calls Claude Haiku 4.5 for a
+  // verdict + quick-wins. Without it the analyzers still produce a full
+  // graded report — only the LLM narrative is dropped. Lets local dev and
+  // CI run without burning credits.
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
 
   // R2 (Cloudflare) — optional. If all five are set, persist uploads screenshots.
   // If any is missing the worker still runs; persist just stores the report
