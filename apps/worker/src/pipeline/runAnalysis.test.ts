@@ -74,7 +74,9 @@ describe('worker pipeline — e2e', () => {
     // Poll the DB until the worker reports a terminal state. Timeout matches
     // the test runner so a hang surfaces as a clean assertion failure.
     const terminalStatuses: JobStatus[] = [JobStatus.COMPLETED, JobStatus.FAILED];
-    const deadline = Date.now() + 20_000;
+    // CI runners are slower than dev machines (apt-installed chromium, no GPU,
+    // smaller core count). 60s is comfortable for a real example.com render.
+    const deadline = Date.now() + 60_000;
     let final: { status: JobStatus; errorMessage: string | null } | null = null;
     while (Date.now() < deadline) {
       const row = await prisma.analysisJob.findUnique({

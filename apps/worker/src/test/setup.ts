@@ -25,7 +25,13 @@ process.env.REDIS_URL = pick(
   'redis://localhost:6379/15',
 )!;
 
-process.env.ANTHROPIC_API_KEY = pick(process.env.ANTHROPIC_API_KEY, 'sk-ant-test-placeholder')!;
+// Anthropic key is optional now. Leave unset by default so the analyze stage
+// skips the LLM call in CI (which would otherwise hit the real API with a
+// placeholder key and time out). Tests that want to exercise the LLM path can
+// override before importing the worker.
+if (!process.env.ANTHROPIC_API_KEY) {
+  delete process.env.ANTHROPIC_API_KEY;
+}
 
 // Tighter timeout in tests so a stuck pipeline fails fast rather than waiting
 // the full 90s. Concurrency=1 keeps test ordering predictable.
