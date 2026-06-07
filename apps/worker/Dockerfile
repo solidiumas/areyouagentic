@@ -34,8 +34,7 @@ COPY packages/db/package.json packages/db/
 COPY packages/shared/package.json packages/shared/
 COPY packages/analyzers/package.json packages/analyzers/
 COPY packages/config/package.json packages/config/
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm config set store-dir /pnpm/store \
+RUN pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile
 
 # ── 3. build ─────────────────────────────────────────────────────────────
