@@ -43,7 +43,7 @@ COPY tsconfig.base.json turbo.json ./
 COPY packages packages
 COPY apps/worker apps/worker
 RUN pnpm --filter @areyouagentic/db exec prisma generate \
- && pnpm --filter ...@areyouagentic/worker build
+ && pnpm exec turbo run build --filter=@areyouagentic/worker
 
 # ── 4. deploy — self-contained tree for the runtime image ────────────────
 FROM build AS deploy

@@ -40,7 +40,7 @@ COPY apps/web apps/web
 # Standalone output (next.config.ts) emits .next/standalone with a server.js
 # plus the minimum node_modules needed to run it.
 RUN pnpm --filter @areyouagentic/db exec prisma generate \
- && pnpm --filter ...@areyouagentic/web build
+ && pnpm exec turbo run build --filter=@areyouagentic/web
 
 # ── 4. runtime — minimal Node image, non-root user ───────────────────────
 FROM node:20-alpine AS runtime
