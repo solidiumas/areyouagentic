@@ -50,12 +50,17 @@ FROM build AS deploy
 RUN pnpm --filter @areyouagentic/worker deploy --prod /out
 # pnpm deploy reconstructs node_modules from the lockfile, which ships the
 # UN-generated @prisma/client stub — `prisma generate`'s output lives outside
-# the package tarball, so it's lost. Regenerate the client directly into the
-# deploy bundle: prisma resolves the default client output relative to the
-# schema's directory, so pointing --schema at a copy inside /out writes the
-# generated client (and its engine) into /out/node_modules.
-RUN cp -r /repo/packages/db/prisma /out/prisma \
- && pnpm --filter @areyouagentic/db exec prisma generate --schema=/out/prisma/schema.prisma
+# the package tarball, so it's lost. The build stage already generated a
+# client for this exact platform; copy it over the stub. (Re-running
+# `prisma generate --schema=/out/...` doesn't work: prisma treats /out as the
+# project root, finds no `prisma` CLI dep there, and tries to npm-install it.)
+RUN set -eux; \
+    for sub in .prisma/client @prisma/client; do \
+      src="$(find /repo/node_modules/.pnpm -type d -path "*@prisma+client@*/node_modules/$sub" | head -1)"; \
+      dst="$(find /out/node_modules/.pnpm -type d -path "*@prisma+client@*/node_modules/$sub" | head -1)"; \
+      test -n "$src" && test -n "$dst"; \
+      rm -rf "$dst"; mkdir -p "$dst"; cp -a "$src/." "$dst/"; \
+    done
 
 # ── 5. runtime — Playwright base, non-root, signal-safe ──────────────────
 # The Playwright image is large (~1.5GB) — it bundles Chromium + Firefox +
