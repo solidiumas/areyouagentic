@@ -58,7 +58,10 @@ function scrubEvent(event: any): any {
   return event;
 }
 
-export async function captureException(err: unknown, context?: Record<string, unknown>): Promise<void> {
+export async function captureException(
+  err: unknown,
+  context?: Record<string, unknown>,
+): Promise<void> {
   if (!env.SENTRY_DSN) return;
   try {
     const moduleName = '@sentry/node';

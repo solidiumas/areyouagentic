@@ -52,9 +52,7 @@ async function main(): Promise<void> {
       logger.error({ err }, 'health server close failed'),
     );
     connection.disconnect();
-    await prisma.$disconnect().catch((err) =>
-      logger.error({ err }, 'prisma disconnect failed'),
-    );
+    await prisma.$disconnect().catch((err) => logger.error({ err }, 'prisma disconnect failed'));
 
     process.exit(outcome === 'timeout' ? 1 : 0);
   };

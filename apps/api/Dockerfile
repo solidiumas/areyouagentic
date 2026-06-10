@@ -25,8 +25,7 @@ COPY packages/db/package.json packages/db/
 COPY packages/shared/package.json packages/shared/
 COPY packages/analyzers/package.json packages/analyzers/
 COPY packages/config/package.json packages/config/
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm config set store-dir /pnpm/store \
+RUN pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile
 
 # ── 3. build — compile TypeScript and generate the prisma client ─────────
@@ -35,14 +34,14 @@ COPY tsconfig.base.json turbo.json ./
 COPY packages packages
 COPY apps/api apps/api
 RUN pnpm --filter @areyouagentic/db exec prisma generate \
- && pnpm --filter @areyouagentic/api build
+ && pnpm exec turbo run build --filter=@areyouagentic/api
 
 # ── 4. deploy — produce a self-contained, hoisted node_modules tree ──────
 # pnpm deploy bundles the target package + its prod deps into one directory
 # with a flat node_modules (no symlinks back to the workspace), which is
 # exactly what we want to copy into a minimal runtime image.
 FROM build AS deploy
-RUN pnpm --filter @areyouagentic/api deploy --prod --legacy /out
+RUN pnpm --filter @areyouagentic/api deploy --prod /out
 
 # ── 5. runtime — minimal, non-root, dumb-init for clean shutdown ─────────
 FROM node:20-alpine AS runtime

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Bot } from 'lucide-react';
 
+import { Badge } from '@/components/ui/badge';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { siteConfig } from '@/lib/site';
 
@@ -15,8 +16,19 @@ export function SiteHeader() {
         >
           <Bot className="h-5 w-5 text-primary" aria-hidden />
           <span>{siteConfig.name}</span>
+          {siteConfig.stage === 'beta' && (
+            <Badge variant="secondary" className="ml-1 uppercase tracking-wide">
+              Beta
+            </Badge>
+          )}
         </Link>
         <nav className="flex items-center gap-1 sm:gap-2" aria-label="Primary">
+          <a
+            href={siteConfig.links.feedback}
+            className="hidden rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground sm:inline-block"
+          >
+            Feedback
+          </a>
           <Link
             href="/about"
             className="hidden rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground sm:inline-block"

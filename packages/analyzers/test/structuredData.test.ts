@@ -54,6 +54,9 @@ describe('structuredDataAnalyzer', () => {
   it('produces a stable snapshot for the ideal fixture', () => {
     const html = loadFixture('ideal.html');
     const result = structuredDataAnalyzer(makeInput({ renderedHtml: html }));
-    expect({ score: result.score, findingIds: result.findings.map((f) => f.id).sort() }).toMatchSnapshot();
+    expect({
+      score: result.score,
+      findingIds: result.findings.map((f) => f.id).sort(),
+    }).toMatchSnapshot();
   });
 });

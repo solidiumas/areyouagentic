@@ -41,9 +41,7 @@ describe('retention — deleteExpiredJobs', () => {
     expect(deleted).toBe(1);
 
     expect(await prisma.analysisJob.findUnique({ where: { id: oldJob.id } })).toBeNull();
-    expect(
-      await prisma.analysisJob.findUnique({ where: { id: recentJob.id } }),
-    ).not.toBeNull();
+    expect(await prisma.analysisJob.findUnique({ where: { id: recentJob.id } })).not.toBeNull();
   });
 
   it('cascades to the associated Report', async () => {
@@ -76,9 +74,7 @@ describe('retention — deleteExpiredJobs', () => {
 
     await deleteExpiredJobs(now);
 
-    expect(
-      await prisma.report.findUnique({ where: { id: oldJob.report!.id } }),
-    ).toBeNull();
+    expect(await prisma.report.findUnique({ where: { id: oldJob.report!.id } })).toBeNull();
   });
 
   it('returns 0 when no jobs are old enough', async () => {

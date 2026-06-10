@@ -32,11 +32,7 @@ async function main(): Promise<void> {
       // Stop accepting new connections, finish in-flight requests.
       await app.close();
       // Then close downstream resources owned by this process.
-      await Promise.allSettled([
-        closeAnalysisQueue(),
-        closeRateLimitRedis(),
-        prisma.$disconnect(),
-      ]);
+      await Promise.allSettled([closeAnalysisQueue(), closeRateLimitRedis(), prisma.$disconnect()]);
       logger.info('Shutdown complete');
       clearTimeout(forceExit);
       process.exit(0);

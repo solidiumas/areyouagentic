@@ -19,6 +19,11 @@
     "./tsconfig/next.json": "./tsconfig/next.json",
     "./tsconfig/library.json": "./tsconfig/library.json"
   },
+  "dependencies": {
+    "@eslint/js": "^9.16.0",
+    "globals": "^15.13.0",
+    "typescript-eslint": "^8.18.0"
+  },
   "devDependencies": {
     "typescript": "^5.6.3"
   }

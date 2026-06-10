@@ -40,7 +40,9 @@ describe('machineReadabilityAnalyzer', () => {
     const product = machineReadabilityAnalyzer(
       makeInput({ renderedHtml: loadFixture('ecommerce-product.html') }),
     );
-    const thin = machineReadabilityAnalyzer(makeInput({ renderedHtml: loadFixture('marketing-thin.html') }));
+    const thin = machineReadabilityAnalyzer(
+      makeInput({ renderedHtml: loadFixture('marketing-thin.html') }),
+    );
     expect(product.score).toBeGreaterThan(thin.score);
   });
 
@@ -53,6 +55,9 @@ describe('machineReadabilityAnalyzer', () => {
   it('produces a stable snapshot for the ideal fixture', () => {
     const html = loadFixture('ideal.html');
     const result = machineReadabilityAnalyzer(makeInput({ renderedHtml: html }));
-    expect({ score: result.score, findingIds: result.findings.map((f) => f.id).sort() }).toMatchSnapshot();
+    expect({
+      score: result.score,
+      findingIds: result.findings.map((f) => f.id).sort(),
+    }).toMatchSnapshot();
   });
 });

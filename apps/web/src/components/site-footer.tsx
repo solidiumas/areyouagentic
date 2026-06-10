@@ -32,6 +32,14 @@ export function SiteFooter() {
             </li>
             <li>
               <a
+                href={siteConfig.links.feedback}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Feedback
+              </a>
+            </li>
+            <li>
+              <a
                 href={siteConfig.links.github}
                 className="text-muted-foreground hover:text-foreground"
                 rel="noopener noreferrer"

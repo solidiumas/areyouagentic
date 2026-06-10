@@ -52,7 +52,10 @@ export function findMainContentText(html: string): { text: string; selector: str
   return { text: $body.text().replace(/\s+/g, ' ').trim(), selector: 'body-minus-boilerplate' };
 }
 
-function textOf($: ReturnType<typeof loadHtml>, el: ReturnType<ReturnType<typeof loadHtml>>): string {
+function textOf(
+  $: ReturnType<typeof loadHtml>,
+  el: ReturnType<ReturnType<typeof loadHtml>>,
+): string {
   const clone = el.clone();
   clone.find('script, style, noscript, template').remove();
   return clone.text().replace(/\s+/g, ' ').trim();
@@ -136,7 +139,8 @@ export const contentClarityAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: CC_FINDINGS.META_DESC_MISSING,
       severity: 'medium',
       title: 'No meta description',
-      description: 'A 50-160 character description controls search snippets and chat-app link previews.',
+      description:
+        'A 50-160 character description controls search snippets and chat-app link previews.',
     });
   } else if (metaDesc.length < 50) {
     metaScore = 10;
@@ -198,7 +202,8 @@ export const contentClarityAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: CC_FINDINGS.LOW_READABILITY,
       severity: 'low',
       title: `Low readability (Flesch ${flesch.toFixed(0)})`,
-      description: 'Long sentences and complex words make the page hard for both humans and agents to summarize.',
+      description:
+        'Long sentences and complex words make the page hard for both humans and agents to summarize.',
     });
   } else if (flesch < 50) {
     readabilityScore = 10;
@@ -243,11 +248,14 @@ export const contentClarityAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: CC_FINDINGS.THIN_CONTENT,
       severity: mainWordCount < 30 ? 'medium' : 'low',
       title: `Thin main content (${mainWordCount} words)`,
-      description: 'Pages under ~100 words rarely give an agent enough material to answer questions about the topic.',
+      description:
+        'Pages under ~100 words rarely give an agent enough material to answer questions about the topic.',
     });
   }
 
-  const score = clampScore(titleScore + metaScore + h1Score + readabilityScore + boilerplateScore + wordCountScore);
+  const score = clampScore(
+    titleScore + metaScore + h1Score + readabilityScore + boilerplateScore + wordCountScore,
+  );
 
   return {
     score,

@@ -16,7 +16,11 @@ import { persistStage } from './stages/persist.js';
  * propagate so the orchestrator can mark the job FAILED — we don't want a
  * stage-level catch to silently turn a hard failure into a half-baked report.
  */
-async function runStage(name: string, stage: Stage, ctx: AnalysisContext): Promise<AnalysisContext> {
+async function runStage(
+  name: string,
+  stage: Stage,
+  ctx: AnalysisContext,
+): Promise<AnalysisContext> {
   const start = Date.now();
   ctx.log.info({ stage: name }, 'stage start');
   try {

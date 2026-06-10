@@ -92,7 +92,10 @@ function scrubEvent(event: any): any {
  * Capture a thrown value with Sentry if it's initialized. No-op otherwise.
  * Safe to call from anywhere — we never want a Sentry call to throw.
  */
-export async function captureException(err: unknown, context?: Record<string, unknown>): Promise<void> {
+export async function captureException(
+  err: unknown,
+  context?: Record<string, unknown>,
+): Promise<void> {
   if (!env.SENTRY_DSN) return;
   try {
     // Resolve via a string so tsc doesn't try to type-check the module —

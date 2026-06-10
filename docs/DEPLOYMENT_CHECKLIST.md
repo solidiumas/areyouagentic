@@ -77,9 +77,7 @@ manager. Specifically:
 
 ## 5. Smoke test
 
-- [ ] `curl -X POST https://api.areyouagentic.com/api/analyze
-       -H 'Content-Type: application/json'
-       -d '{"url":"https://example.com"}'`
+- [ ] `curl -X POST https://api.areyouagentic.com/api/analyze -H 'Content-Type: application/json' -d '{"url":"https://example.com"}'`
       returns 202 with a `jobId`.
 - [ ] `curl https://api.areyouagentic.com/api/jobs/<jobId>` shows the job
       progressing through PENDING → RUNNING → COMPLETED within ~30s.

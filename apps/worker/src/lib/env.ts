@@ -6,7 +6,20 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   REDIS_URL: z.string().url(),
 
-  ANTHROPIC_API_KEY: z.string().min(1),
+  // Optional: when present, analyze stage calls Claude Haiku 4.5 for a
+  // verdict + quick-wins. Without it the analyzers still produce a full
+  // graded report — only the LLM narrative is dropped. Lets local dev and
+  // CI run without burning credits.
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+
+  // R2 (Cloudflare) — optional. If all five are set, persist uploads screenshots.
+  // If any is missing the worker still runs; persist just stores the report
+  // without an R2 screenshot URL. Keeps local dev painless.
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET: z.string().optional(),
+  R2_PUBLIC_URL: z.string().url().optional(),
 
   // How many jobs a single worker process handles in parallel. Tune against
   // the cost of a Playwright render — going too high will OOM the box.
@@ -17,9 +30,7 @@ const envSchema = z.object({
   JOB_TIMEOUT_MS: z.coerce.number().int().positive().default(90_000),
 
   // Optional log level — defaults differ per NODE_ENV (see logger.ts).
-  LOG_LEVEL: z
-    .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
-    .optional(),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),
 
   // HTTP port for the in-process health server. The worker isn't an HTTP
   // service but the orchestrator needs a probe target — we bind a tiny

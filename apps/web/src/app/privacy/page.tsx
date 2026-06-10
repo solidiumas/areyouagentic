@@ -21,15 +21,14 @@ export default function PrivacyPage() {
 
         <h2 className="mt-10 text-2xl font-semibold">URLs you submit</h2>
         <p>
-          When you submit a URL for analysis we store the URL, a normalized version, and the
-          report we produce. Reports are public by id but not indexed by search engines.
+          When you submit a URL for analysis we store the URL, a normalized version, and the report
+          we produce. Reports are public by id but not indexed by search engines.
         </p>
 
         <h2 className="mt-8 text-2xl font-semibold">Retention</h2>
         <p>
-          Reports and the associated job records are automatically deleted{' '}
-          <strong>90 days</strong> after they are created. Backups are retained no longer than
-          30 additional days.
+          Reports and the associated job records are automatically deleted <strong>90 days</strong>{' '}
+          after they are created. Backups are retained no longer than 30 additional days.
         </p>
 
         <h2 className="mt-8 text-2xl font-semibold">Logs</h2>
@@ -47,9 +46,9 @@ export default function PrivacyPage() {
 
         <h2 className="mt-8 text-2xl font-semibold">Third parties</h2>
         <p>
-          Our analysis pipeline sends a short summary of the page text to Anthropic&rsquo;s
-          Claude API for recommendation generation. No request metadata or personal data is
-          forwarded — only the public content of the page being analyzed.
+          Our analysis pipeline sends a short summary of the page text to Anthropic&rsquo;s Claude
+          API for recommendation generation. No request metadata or personal data is forwarded —
+          only the public content of the page being analyzed.
         </p>
 
         <h2 className="mt-8 text-2xl font-semibold">Data deletion</h2>

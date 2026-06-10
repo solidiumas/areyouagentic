@@ -12,7 +12,7 @@ import {
   findingsSchema,
   recommendationsSchema,
 } from '@areyouagentic/shared';
-import { JobStatus, Prisma, PrismaClient } from '@prisma/client';
+import { JobStatus, type Prisma, PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -67,8 +67,7 @@ const goodFindings: Findings = findingsSchema.parse([
       priority: 'low',
       category: 'contentClarity',
       title: 'Use exactly one H1 per page',
-      description:
-        'Demote the secondary H1 to H2 so agents have an unambiguous page title.',
+      description: 'Demote the secondary H1 to H2 so agents have an unambiguous page title.',
       exampleCode: '<h2>Section title</h2>',
     },
   },
@@ -79,8 +78,7 @@ const goodRecommendations: Recommendations = recommendationsSchema.parse([
     priority: 'low',
     category: 'contentClarity',
     title: 'Use exactly one H1 per page',
-    description:
-      'Demote the secondary H1 to H2 so agents have an unambiguous page title.',
+    description: 'Demote the secondary H1 to H2 so agents have an unambiguous page title.',
     exampleCode: '<h2>Section title</h2>',
   },
 ]);
@@ -103,8 +101,7 @@ const goodEvidence: Evidence = evidenceSchema.parse([
   {
     id: 'ev-jsonld',
     type: 'json-ld',
-    inline:
-      '{"@context":"https://schema.org","@type":"Organization","name":"Example Inc"}',
+    inline: '{"@context":"https://schema.org","@type":"Organization","name":"Example Inc"}',
     contentType: 'application/ld+json',
     capturedAt: minutesAgo(15).toISOString(),
   },
@@ -151,8 +148,7 @@ const okRecommendations: Recommendations = recommendationsSchema.parse([
     priority: 'medium',
     category: 'agentSignals',
     title: 'Publish an llms.txt index',
-    description:
-      'Provide /llms.txt pointing to your most important content for AI agents.',
+    description: 'Provide /llms.txt pointing to your most important content for AI agents.',
     exampleCode: '# Acme Docs\n- [Pricing](https://acme.example/pricing)\n',
   },
 ]);
@@ -174,10 +170,8 @@ const badFindings: Findings = findingsSchema.parse([
     id: 'robots-blocks-agents',
     severity: 'high',
     title: 'robots.txt blocks AI user-agents',
-    description:
-      'GPTBot, ClaudeBot, and PerplexityBot are explicitly disallowed.',
-    evidence:
-      'User-agent: GPTBot\nDisallow: /\n\nUser-agent: ClaudeBot\nDisallow: /',
+    description: 'GPTBot, ClaudeBot, and PerplexityBot are explicitly disallowed.',
+    evidence: 'User-agent: GPTBot\nDisallow: /\n\nUser-agent: ClaudeBot\nDisallow: /',
   },
   {
     id: 'spa-no-ssr',
@@ -218,15 +212,13 @@ const badRecommendations: Recommendations = recommendationsSchema.parse([
     priority: 'high',
     category: 'structuredData',
     title: 'Add Schema.org JSON-LD',
-    description:
-      'At minimum, add Organization and WebSite schemas to the homepage.',
+    description: 'At minimum, add Organization and WebSite schemas to the homepage.',
   },
   {
     priority: 'medium',
     category: 'actionability',
     title: 'Add aria-label to icon buttons',
-    description:
-      'Icon-only buttons need an accessible name so agents can describe the action.',
+    description: 'Icon-only buttons need an accessible name so agents can describe the action.',
     exampleCode: '<button aria-label="Add to cart">…</button>',
   },
 ]);
@@ -235,8 +227,7 @@ const badEvidence: Evidence = evidenceSchema.parse([
   {
     id: 'ev-bad-robots',
     type: 'robots-txt',
-    inline:
-      'User-agent: GPTBot\nDisallow: /\n\nUser-agent: ClaudeBot\nDisallow: /\n',
+    inline: 'User-agent: GPTBot\nDisallow: /\n\nUser-agent: ClaudeBot\nDisallow: /\n',
     contentType: 'text/plain',
     capturedAt: minutesAgo(120).toISOString(),
   },

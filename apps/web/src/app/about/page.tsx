@@ -22,18 +22,18 @@ export default function AboutPage() {
 
         <h2 className="mt-10 text-2xl font-semibold">What we measure</h2>
         <p>
-          We grade six dimensions an agent cares about: machine readability, structured data,
-          agent signals, actionability, performance, and content clarity. Each dimension is
-          backed by deterministic checks (HTML parsing, header inspection, structured data
-          validation) and synthesized into a per-page score.
+          We grade six dimensions an agent cares about: machine readability, structured data, agent
+          signals, actionability, performance, and content clarity. Each dimension is backed by
+          deterministic checks (HTML parsing, header inspection, structured data validation) and
+          synthesized into a per-page score.
         </p>
 
         <h2 className="mt-8 text-2xl font-semibold">Why a separate score from SEO</h2>
         <p>
           Search engines and AI agents overlap, but they aren&rsquo;t the same. Agents care more
-          about clean rendered HTML, semantic structure, and explicit affordances (forms,
-          buttons, structured actions). A site that ranks well on Google can still be opaque to a
-          coding agent or research assistant.
+          about clean rendered HTML, semantic structure, and explicit affordances (forms, buttons,
+          structured actions). A site that ranks well on Google can still be opaque to a coding
+          agent or research assistant.
         </p>
 
         <h2 className="mt-8 text-2xl font-semibold">How we behave</h2>
@@ -47,8 +47,8 @@ export default function AboutPage() {
         <h2 className="mt-8 text-2xl font-semibold">Open questions, open feedback</h2>
         <p>
           The criteria are evolving as the agentic web evolves. Open an issue on{' '}
-          <a href={siteConfig.links.github}>GitHub</a> with feedback, edge cases, or ideas for
-          new checks.
+          <a href={siteConfig.links.github}>GitHub</a> with feedback, edge cases, or ideas for new
+          checks.
         </p>
       </section>
     </article>

@@ -28,8 +28,7 @@ COPY packages/db/package.json packages/db/
 COPY packages/shared/package.json packages/shared/
 COPY packages/analyzers/package.json packages/analyzers/
 COPY packages/config/package.json packages/config/
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm config set store-dir /pnpm/store \
+RUN pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile
 
 # ── 3. build — produce .next/standalone ──────────────────────────────────
@@ -40,7 +39,8 @@ COPY packages packages
 COPY apps/web apps/web
 # Standalone output (next.config.ts) emits .next/standalone with a server.js
 # plus the minimum node_modules needed to run it.
-RUN pnpm --filter @areyouagentic/web build
+RUN pnpm --filter @areyouagentic/db exec prisma generate \
+ && pnpm exec turbo run build --filter=@areyouagentic/web
 
 # ── 4. runtime — minimal Node image, non-root user ───────────────────────
 FROM node:20-alpine AS runtime

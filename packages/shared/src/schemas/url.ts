@@ -326,8 +326,7 @@ export function validateAnalyzableUrl(input: unknown): UrlValidationResult {
 export function classifyIpString(ip: string): UrlValidationReason | null {
   if (ip.length === 0) return 'invalid-url';
 
-  const trimmed =
-    ip.startsWith('[') && ip.endsWith(']') ? ip.slice(1, -1) : ip;
+  const trimmed = ip.startsWith('[') && ip.endsWith(']') ? ip.slice(1, -1) : ip;
 
   // IPv6 always contains a colon. IPv4 never does.
   if (trimmed.includes(':')) {

@@ -15,7 +15,7 @@ import { env } from '../lib/env.js';
  * un-configured deploy never leaks anything.
  */
 
-type StatusCounts = Record<JobStatus, number>;
+type StatusCounts = Record<keyof typeof JobStatus, number>;
 
 type MetricsResponse = {
   generatedAt: string;

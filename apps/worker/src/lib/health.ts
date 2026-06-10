@@ -36,7 +36,9 @@ export function createHealthServer(redis: Redis): Server {
       // resolve the readiness check then write the response.
       void checkReadiness(redis).then((result) => {
         res.writeHead(result.healthy ? 200 : 503, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ status: result.healthy ? 'ok' : 'degraded', checks: result.checks }));
+        res.end(
+          JSON.stringify({ status: result.healthy ? 'ok' : 'degraded', checks: result.checks }),
+        );
       });
       return;
     }

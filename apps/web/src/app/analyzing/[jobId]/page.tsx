@@ -8,11 +8,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default async function AnalyzingPage({
-  params,
-}: {
-  params: Promise<{ jobId: string }>;
-}) {
+export default async function AnalyzingPage({ params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
 
   return (
@@ -21,12 +17,10 @@ export default async function AnalyzingPage({
         <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
           Job {jobId}
         </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">
-          Analyzing your site
-        </h1>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Analyzing your site</h1>
         <p className="mt-2 text-muted-foreground">
-          We&rsquo;re fetching your page the same way an AI agent would, and grading what we
-          find. This usually takes 30–60 seconds.
+          We&rsquo;re fetching your page the same way an AI agent would, and grading what we find.
+          This usually takes 30–60 seconds.
         </p>
       </header>
       <AnalyzingChecklist jobId={jobId} />

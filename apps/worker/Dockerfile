@@ -34,8 +34,7 @@ COPY packages/db/package.json packages/db/
 COPY packages/shared/package.json packages/shared/
 COPY packages/analyzers/package.json packages/analyzers/
 COPY packages/config/package.json packages/config/
-RUN --mount=type=cache,id=pnpm-store,target=/pnpm/store \
-    pnpm config set store-dir /pnpm/store \
+RUN pnpm config set store-dir /pnpm/store \
  && pnpm install --frozen-lockfile
 
 # ── 3. build ─────────────────────────────────────────────────────────────
@@ -44,18 +43,18 @@ COPY tsconfig.base.json turbo.json ./
 COPY packages packages
 COPY apps/worker apps/worker
 RUN pnpm --filter @areyouagentic/db exec prisma generate \
- && pnpm --filter @areyouagentic/worker build
+ && pnpm exec turbo run build --filter=@areyouagentic/worker
 
 # ── 4. deploy — self-contained tree for the runtime image ────────────────
 FROM build AS deploy
-RUN pnpm --filter @areyouagentic/worker deploy --prod --legacy /out
+RUN pnpm --filter @areyouagentic/worker deploy --prod /out
 
 # ── 5. runtime — Playwright base, non-root, signal-safe ──────────────────
 # The Playwright image is large (~1.5GB) — it bundles Chromium + Firefox +
 # WebKit + every X font you've ever heard of. We get all of that for free.
 # Pin the tag to the Playwright version the code expects so a rebuild can't
 # silently pull a newer Chromium under us.
-FROM mcr.microsoft.com/playwright:v1.48.2-jammy AS runtime
+FROM mcr.microsoft.com/playwright:v1.55.1-jammy AS runtime
 ENV NODE_ENV=production \
     HEALTH_PORT=4001 \
     # Tell Playwright not to download browsers at runtime; the base image ships them.

@@ -36,6 +36,7 @@ function write(level: Level, payload: Record<string, unknown>, msg?: string): vo
     ...payload,
   };
   // Edge and Node both support console.log; the runtime captures stdout/stderr.
+  // eslint-disable-next-line no-console -- structured-log shipper, see comment above
   const fn = level === 'error' || level === 'fatal' ? console.error : console.log;
   fn(JSON.stringify(entry));
 }

@@ -2,13 +2,7 @@ import type { Metadata } from 'next';
 import { CheckCircle2, FileSearch, Sparkles } from 'lucide-react';
 
 import { UrlForm } from '@/components/url-form';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { siteConfig } from '@/lib/site';
 
@@ -29,7 +23,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How do you score a site?',
-    a: "We score six dimensions: machine readability, structured data, agent signals, actionability, performance, and content clarity. Each dimension produces findings with severity and copy-paste fixes. The overall grade (A–F) is a weighted average.",
+    a: 'We score six dimensions: machine readability, structured data, agent signals, actionability, performance, and content clarity. Each dimension produces findings with severity and copy-paste fixes. The overall grade (A–F) is a weighted average.',
   },
   {
     q: 'Will this slow down my site or modify it?',
@@ -82,17 +76,19 @@ export default function HomePage() {
               <UrlForm />
             </div>
 
-            <p className="mt-8 text-sm text-muted-foreground" aria-live="polite">
-              <span className="font-semibold text-foreground">2,143</span> sites analyzed this week
+            <p className="mt-8 text-sm text-muted-foreground">
+              <span className="font-semibold text-foreground">Beta:</span> we&rsquo;d love your
+              feedback —{' '}
+              <a href={siteConfig.links.feedback} className="underline hover:text-foreground">
+                send a note
+              </a>
+              .
             </p>
           </div>
         </div>
       </section>
 
-      <section
-        aria-labelledby="info-heading"
-        className="container py-16 sm:py-24"
-      >
+      <section aria-labelledby="info-heading" className="container py-16 sm:py-24">
         <h2 id="info-heading" className="sr-only">
           What this is
         </h2>
@@ -174,7 +170,6 @@ export default function HomePage() {
 
       <script
         type="application/ld+json"
-        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
       />
     </>

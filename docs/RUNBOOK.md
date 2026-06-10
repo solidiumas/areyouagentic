@@ -119,14 +119,12 @@ Triage:
    Are all instances healthy? Restart any that are crash-looping.
 
 3. Concurrency:
-
    - Default `WORKER_CONCURRENCY=3` per instance.
    - Bump to 4–5 if CPU is under 70% and memory is under 70%.
    - **Do not** raise above 8 — Playwright/Chromium memory grows linearly
      and you'll OOM the box.
 
 4. Scale out:
-
    - Add a worker instance via the platform's "duplicate service" or
      `fly scale count N`.
    - BullMQ distributes jobs across all instances automatically — no

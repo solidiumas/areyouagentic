@@ -111,6 +111,9 @@ describe('agentSignalsAnalyzer', () => {
         finalUrl: 'https://acme.coffee/',
       }),
     );
-    expect({ score: result.score, findingIds: result.findings.map((f) => f.id).sort() }).toMatchSnapshot();
+    expect({
+      score: result.score,
+      findingIds: result.findings.map((f) => f.id).sort(),
+    }).toMatchSnapshot();
   });
 });

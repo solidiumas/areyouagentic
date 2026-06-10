@@ -70,7 +70,8 @@ export const machineReadabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
   const semanticCounts = countTags($rend, SEMANTIC_TAGS);
   const semanticTotal = Object.values(semanticCounts).reduce((a, b) => a + b, 0);
   const divCount = $rend('div').length;
-  const semanticRatio = divCount === 0 ? (semanticTotal > 0 ? 1 : 0) : semanticTotal / (semanticTotal + divCount);
+  const semanticRatio =
+    divCount === 0 ? (semanticTotal > 0 ? 1 : 0) : semanticTotal / (semanticTotal + divCount);
 
   let semanticScore: number;
   if (semanticTotal === 0) {
@@ -79,7 +80,8 @@ export const machineReadabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: MR_FINDINGS.NO_SEMANTIC_TAGS,
       severity: 'high',
       title: 'No semantic HTML5 tags found',
-      description: 'The page uses only generic <div> elements. Semantic tags like <main>, <article>, and <nav> help agents understand page structure.',
+      description:
+        'The page uses only generic <div> elements. Semantic tags like <main>, <article>, and <nav> help agents understand page structure.',
     });
   } else if (semanticRatio < 0.05) {
     semanticScore = 8;
@@ -97,7 +99,9 @@ export const machineReadabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
 
   // ── Real buttons ─────────────────────────────────────────────────
   const realButtons = $rend('button, a[href], input[type=submit], input[type=button]').length;
-  const clickableDivs = $rend('div[onclick], span[onclick], div[role=button], span[role=button]').length;
+  const clickableDivs = $rend(
+    'div[onclick], span[onclick], div[role=button], span[role=button]',
+  ).length;
   let buttonScore: number;
   if (clickableDivs === 0) {
     buttonScore = 15;
@@ -136,7 +140,8 @@ export const machineReadabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: MR_FINDINGS.MULTIPLE_H1,
       severity: 'low',
       title: `Multiple <h1> tags found (${h1Count})`,
-      description: 'Multiple top-level headings dilute the page topic for crawlers and screen readers.',
+      description:
+        'Multiple top-level headings dilute the page topic for crawlers and screen readers.',
     });
   }
 
@@ -169,7 +174,8 @@ export const machineReadabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: MR_FINDINGS.NO_LANDMARKS,
       severity: 'medium',
       title: 'No landmark elements (<main>, <nav>, <header>, <footer>)',
-      description: 'Landmarks let agents and assistive tech jump to the main content; without them the page is one undifferentiated blob.',
+      description:
+        'Landmarks let agents and assistive tech jump to the main content; without them the page is one undifferentiated blob.',
     });
   } else if (presentLandmarks.length < 2) {
     landmarkScore = 5;
@@ -202,7 +208,9 @@ export const machineReadabilityAnalyzer: Analyzer = (input): AnalyzerResult => {
     });
   }
 
-  const score = clampScore(rawScore + semanticScore + buttonScore + headingScore + landmarkScore + iframeScore);
+  const score = clampScore(
+    rawScore + semanticScore + buttonScore + headingScore + landmarkScore + iframeScore,
+  );
 
   return {
     score,

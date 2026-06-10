@@ -37,11 +37,7 @@ export async function resetRedis(): Promise<void> {
 
 export async function closeTestServer(app: FastifyInstance): Promise<void> {
   await app.close();
-  await Promise.allSettled([
-    closeAnalysisQueue(),
-    closeRateLimitRedis(),
-    prisma.$disconnect(),
-  ]);
+  await Promise.allSettled([closeAnalysisQueue(), closeRateLimitRedis(), prisma.$disconnect()]);
 }
 
 /**

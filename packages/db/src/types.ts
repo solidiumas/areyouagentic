@@ -1,7 +1,4 @@
-import type {
-  AnalysisJob as PrismaAnalysisJob,
-  Report as PrismaReport,
-} from '@prisma/client';
+import type { AnalysisJob as PrismaAnalysisJob, Report as PrismaReport } from '@prisma/client';
 import type { Evidence, Findings, Recommendations } from '@areyouagentic/shared';
 
 export type AnalysisJob = PrismaAnalysisJob;

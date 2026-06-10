@@ -55,9 +55,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
     if (err instanceof HttpError) {
       const log = err.statusCode >= 500 ? req.log.error : req.log.warn;
       log.call(req.log, { err, statusCode: err.statusCode, code: err.code }, err.message);
-      return reply
-        .code(err.statusCode)
-        .send(buildPayload(err.code, err.message, err.details));
+      return reply.code(err.statusCode).send(buildPayload(err.code, err.message, err.details));
     }
 
     // A ZodError reaching the handler means an internal `.parse()` blew up —
@@ -88,9 +86,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
     // Body-too-large is a Fastify built-in; surface it as 413 with our envelope.
     if (err.statusCode === 413) {
       req.log.warn({ err }, 'Payload too large');
-      return reply
-        .code(413)
-        .send(buildPayload('PAYLOAD_TOO_LARGE', 'Request body is too large'));
+      return reply.code(413).send(buildPayload('PAYLOAD_TOO_LARGE', 'Request body is too large'));
     }
 
     // Trust a 4xx Fastify status code (e.g. 400, 401) — those messages are

@@ -36,15 +36,15 @@ schema and gives you a fully typed `Report`.
 Run from `packages/db` (or `pnpm --filter @areyouagentic/db <script>` from
 the root):
 
-| Script                     | What it does                                                 |
-| -------------------------- | ------------------------------------------------------------ |
-| `pnpm db:generate`         | Regenerate the Prisma client from `schema.prisma`.           |
-| `pnpm db:migrate`          | Create + apply a new dev migration. Prompts for a name.      |
-| `pnpm db:migrate:deploy`   | Apply pending migrations non-interactively (use in CI/prod). |
-| `pnpm db:migrate:reset`    | Drop, recreate, re-migrate, and re-seed. **Destructive.**    |
-| `pnpm db:push`             | Sync schema to DB without a migration. Prototype use only.   |
-| `pnpm db:seed`             | Run `prisma/seed.ts`.                                        |
-| `pnpm db:studio`           | Launch Prisma Studio at `localhost:5555`.                    |
+| Script                   | What it does                                                 |
+| ------------------------ | ------------------------------------------------------------ |
+| `pnpm db:generate`       | Regenerate the Prisma client from `schema.prisma`.           |
+| `pnpm db:migrate`        | Create + apply a new dev migration. Prompts for a name.      |
+| `pnpm db:migrate:deploy` | Apply pending migrations non-interactively (use in CI/prod). |
+| `pnpm db:migrate:reset`  | Drop, recreate, re-migrate, and re-seed. **Destructive.**    |
+| `pnpm db:push`           | Sync schema to DB without a migration. Prototype use only.   |
+| `pnpm db:seed`           | Run `prisma/seed.ts`.                                        |
+| `pnpm db:studio`         | Launch Prisma Studio at `localhost:5555`.                    |
 
 ## First-time setup
 
@@ -84,11 +84,7 @@ For writes, build the JSON payloads with the Zod schemas from
 `@areyouagentic/shared` and pass them straight in:
 
 ```ts
-import {
-  findingsSchema,
-  recommendationsSchema,
-  evidenceSchema,
-} from '@areyouagentic/shared';
+import { findingsSchema, recommendationsSchema, evidenceSchema } from '@areyouagentic/shared';
 import { prisma, Prisma } from '@areyouagentic/db';
 
 await prisma.report.create({

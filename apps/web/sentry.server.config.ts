@@ -22,13 +22,7 @@ if (dsn) {
   });
 }
 
-const PII_HEADERS = new Set([
-  'authorization',
-  'cookie',
-  'set-cookie',
-  'x-api-key',
-  'x-auth-token',
-]);
+const PII_HEADERS = new Set(['authorization', 'cookie', 'set-cookie', 'x-api-key', 'x-auth-token']);
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function scrubEvent(event: any): any {

@@ -75,7 +75,8 @@ export const performanceAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: PF_FINDINGS.SLOW_TTFB,
       severity: m.ttfb > 1200 ? 'high' : 'medium',
       title: `Slow time-to-first-byte (${m.ttfb} ms)`,
-      description: 'TTFB > 600 ms means the origin or upstream is slow before the browser even starts rendering. Agents waiting on you may time out.',
+      description:
+        'TTFB > 600 ms means the origin or upstream is slow before the browser even starts rendering. Agents waiting on you may time out.',
     });
   }
 
@@ -85,7 +86,8 @@ export const performanceAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: PF_FINDINGS.HEAVY_PAGE,
       severity: m.pageSize > 4_000_000 ? 'high' : 'medium',
       title: `Heavy page (${(m.pageSize / 1_000_000).toFixed(2)} MB)`,
-      description: 'Large payloads slow agents on metered or batched connections and inflate token cost when ingesting the page.',
+      description:
+        'Large payloads slow agents on metered or batched connections and inflate token cost when ingesting the page.',
     });
   }
 
@@ -95,7 +97,8 @@ export const performanceAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: PF_FINDINGS.TOO_MANY_REQUESTS,
       severity: m.numRequests > 120 ? 'medium' : 'low',
       title: `${m.numRequests} network requests`,
-      description: 'A high request count delays network idle and increases the chance an agent gives up before the page settles.',
+      description:
+        'A high request count delays network idle and increases the chance an agent gives up before the page settles.',
     });
   }
 
@@ -114,7 +117,8 @@ export const performanceAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: PF_FINDINGS.SLOW_NETWORK_IDLE,
       severity: 'low',
       title: `Network did not go idle until ${m.networkIdle} ms`,
-      description: 'Long-tail requests (analytics, polling, ads) keep the network busy and confuse "page is ready" heuristics.',
+      description:
+        'Long-tail requests (analytics, polling, ads) keep the network busy and confuse "page is ready" heuristics.',
     });
   }
 
@@ -128,7 +132,8 @@ export const performanceAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: PF_FINDINGS.COOKIE_BANNER_BLOCKING,
       severity: 'medium',
       title: 'Blocking cookie/consent banner detected',
-      description: 'High-z-index dialogs that intercept the viewport prevent agents from interacting with the page until dismissed.',
+      description:
+        'High-z-index dialogs that intercept the viewport prevent agents from interacting with the page until dismissed.',
     });
   } else {
     bannerScore = 0;
@@ -136,7 +141,8 @@ export const performanceAnalyzer: Analyzer = (input): AnalyzerResult => {
       id: PF_FINDINGS.COOKIE_BANNER_BLOCKING,
       severity: 'high',
       title: `${banners} blocking dialogs detected`,
-      description: 'Multiple modal overlays detected — typically cookie banner + newsletter + region prompt. Each one is friction for agents.',
+      description:
+        'Multiple modal overlays detected — typically cookie banner + newsletter + region prompt. Each one is friction for agents.',
     });
   }
 

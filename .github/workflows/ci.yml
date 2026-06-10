@@ -24,6 +24,39 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
+    # api and worker integration tests need Postgres + Redis. The default
+    # connection URLs in src/test/setup.ts point at localhost:5432 / :6379
+    # so we expose the service ports on the runner.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: areyouagentic
+          POSTGRES_PASSWORD: areyouagentic
+          POSTGRES_DB: areyouagentic
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U areyouagentic -d areyouagentic"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://areyouagentic:areyouagentic@localhost:5432/areyouagentic?schema=public
+      TEST_DATABASE_URL: postgresql://areyouagentic:areyouagentic@localhost:5432/areyouagentic?schema=test
+      REDIS_URL: redis://localhost:6379
+      TEST_REDIS_URL: redis://localhost:6379/15
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,6 +87,11 @@ jobs:
       - name: Prisma generate
         run: pnpm --filter @areyouagentic/db exec prisma generate
 
+      - name: Push DB schema (public + test)
+        run: |
+          pnpm --filter @areyouagentic/db exec prisma db push --skip-generate
+          DATABASE_URL="${TEST_DATABASE_URL}" pnpm --filter @areyouagentic/db exec prisma db push --skip-generate
+
       - name: Format check
         run: pnpm format:check
 
@@ -62,6 +100,9 @@ jobs:
 
       - name: Typecheck
         run: pnpm typecheck
+
+      - name: Install Playwright Chromium (worker tests render real pages)
+        run: pnpm --filter @areyouagentic/worker exec playwright install --with-deps chromium
 
       - name: Build
         run: pnpm build

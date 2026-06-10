@@ -29,12 +29,12 @@ API_URL=http://localhost:4000 k6 run tests/load/queue-throughput.js
 
 ## Targets we hold the system to
 
-| Test                | Metric                | Target            |
-|---------------------|-----------------------|-------------------|
-| `analyze-burst`     | `http_req_duration` median | < 200 ms     |
-| `analyze-burst`     | `http_req_duration` p99    | < 1500 ms    |
-| `analyze-burst`     | error rate                 | < 1%         |
-| `queue-throughput`  | wall-clock to drain 200    | < 4 min @ 3 workers (~50 jobs/min) |
+| Test               | Metric                     | Target                             |
+| ------------------ | -------------------------- | ---------------------------------- |
+| `analyze-burst`    | `http_req_duration` median | < 200 ms                           |
+| `analyze-burst`    | `http_req_duration` p99    | < 1500 ms                          |
+| `analyze-burst`    | error rate                 | < 1%                               |
+| `queue-throughput` | wall-clock to drain 200    | < 4 min @ 3 workers (~50 jobs/min) |
 
 The `queue-throughput` test only enqueues; the worker is responsible for the
 actual processing. Stub stages in the worker complete in tens of ms, so

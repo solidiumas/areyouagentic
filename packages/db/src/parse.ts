@@ -1,8 +1,4 @@
-import {
-  evidenceSchema,
-  findingsSchema,
-  recommendationsSchema,
-} from '@areyouagentic/shared';
+import { evidenceSchema, findingsSchema, recommendationsSchema } from '@areyouagentic/shared';
 import type { Report as PrismaReport } from '@prisma/client';
 import type { Report } from './types.js';
 

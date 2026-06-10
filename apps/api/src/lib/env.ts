@@ -10,9 +10,7 @@ const envSchema = z.object({
   APP_URL: z.string().url(),
 
   // Optional log level — defaults differ per NODE_ENV (see logger.ts).
-  LOG_LEVEL: z
-    .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
-    .optional(),
+  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).optional(),
 
   // Sentry is opt-in. Without a DSN the SDK never initializes.
   SENTRY_DSN: z.string().url().optional(),
