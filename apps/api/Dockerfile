@@ -34,7 +34,7 @@ COPY tsconfig.base.json turbo.json ./
 COPY packages packages
 COPY apps/api apps/api
 RUN pnpm --filter @areyouagentic/db exec prisma generate \
- && pnpm --filter @areyouagentic/api build
+ && pnpm --filter ...@areyouagentic/api build
 
 # ── 4. deploy — produce a self-contained, hoisted node_modules tree ──────
 # pnpm deploy bundles the target package + its prod deps into one directory
