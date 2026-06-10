@@ -1,6 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { Prisma, prisma } from '@areyouagentic/db';
-import type { JobStatus } from '@areyouagentic/db';
+import { JobStatus, Prisma, prisma } from '@areyouagentic/db';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { env } from '../lib/env.js';
 
@@ -16,7 +15,7 @@ import { env } from '../lib/env.js';
  * un-configured deploy never leaks anything.
  */
 
-type StatusCounts = Record<JobStatus, number>;
+type StatusCounts = Record<keyof typeof JobStatus, number>;
 
 type MetricsResponse = {
   generatedAt: string;

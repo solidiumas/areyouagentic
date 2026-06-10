@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { Prisma, prisma } from '@areyouagentic/db';
+import type { PrismaTypes } from '@areyouagentic/db';
 import type { AnalyzerResult } from '@areyouagentic/analyzers';
 import type { Dimension, EvidenceItem, Finding, Recommendation } from '@areyouagentic/shared';
 import { uploadScreenshot } from '../../lib/r2.js';
@@ -101,14 +102,14 @@ export const persistStage: Stage = async (ctx: AnalysisContext) => {
       actionabilityScore: ctx.scores.actionability,
       performanceScore: ctx.scores.performance,
       contentClarityScore: ctx.scores.contentClarity,
-      findings: flatFindings as unknown as Prisma.InputJsonValue,
-      recommendations: recommendations as unknown as Prisma.InputJsonValue,
-      evidence: evidence as unknown as Prisma.InputJsonValue,
+      findings: flatFindings as unknown as PrismaTypes.InputJsonValue,
+      recommendations: recommendations as unknown as PrismaTypes.InputJsonValue,
+      evidence: evidence as unknown as PrismaTypes.InputJsonValue,
       pageTitle: ctx.pageTitle ?? null,
       finalUrl: ctx.finalUrl ?? ctx.url,
       llmVerdict: ctx.llmInsight?.verdict ?? null,
       llmQuickWins: ctx.llmInsight
-        ? (ctx.llmInsight.quickWins as unknown as Prisma.InputJsonValue)
+        ? (ctx.llmInsight.quickWins as unknown as PrismaTypes.InputJsonValue)
         : Prisma.JsonNull,
     },
   });
