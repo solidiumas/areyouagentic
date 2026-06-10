@@ -42,6 +42,14 @@ RUN pnpm --filter @areyouagentic/db exec prisma generate \
 # exactly what we want to copy into a minimal runtime image.
 FROM build AS deploy
 RUN pnpm --filter @areyouagentic/api deploy --prod /out
+# pnpm deploy reconstructs node_modules from the lockfile, which ships the
+# UN-generated @prisma/client stub — `prisma generate`'s output lives outside
+# the package tarball, so it's lost. Regenerate the client directly into the
+# deploy bundle: prisma resolves the default client output relative to the
+# schema's directory, so pointing --schema at a copy inside /out writes the
+# generated client (and its engine) into /out/node_modules.
+RUN cp -r /repo/packages/db/prisma /out/prisma \
+ && pnpm --filter @areyouagentic/db exec prisma generate --schema=/out/prisma/schema.prisma
 
 # ── 5. runtime — minimal, non-root, dumb-init for clean shutdown ─────────
 FROM node:20-alpine AS runtime

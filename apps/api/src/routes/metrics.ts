@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
-import { JobStatus, Prisma, prisma } from '@areyouagentic/db';
+import { Prisma, prisma } from '@areyouagentic/db';
+import type { JobStatus } from '@areyouagentic/db';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { env } from '../lib/env.js';
 
@@ -15,7 +16,7 @@ import { env } from '../lib/env.js';
  * un-configured deploy never leaks anything.
  */
 
-type StatusCounts = Record<keyof typeof JobStatus, number>;
+type StatusCounts = Record<JobStatus, number>;
 
 type MetricsResponse = {
   generatedAt: string;
@@ -119,7 +120,9 @@ async function collectMetrics(): Promise<MetricsResponse> {
     COMPLETED: 0,
     FAILED: 0,
   };
-  for (const row of grouped) byStatus[row.status] = row._count._all;
+  // Prisma's groupBy overload widens `row.status` to `any` for a single-field
+  // `by`, so cast back to the known enum to index our typed counter.
+  for (const row of grouped) byStatus[row.status as JobStatus] = row._count._all;
   const total = byStatus.COMPLETED + byStatus.FAILED + byStatus.PENDING + byStatus.RUNNING;
   const finished = byStatus.COMPLETED + byStatus.FAILED;
   const errorRate = finished === 0 ? 0 : byStatus.FAILED / finished;
