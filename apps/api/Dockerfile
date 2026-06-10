@@ -41,7 +41,7 @@ RUN pnpm --filter @areyouagentic/db exec prisma generate \
 # with a flat node_modules (no symlinks back to the workspace), which is
 # exactly what we want to copy into a minimal runtime image.
 FROM build AS deploy
-RUN pnpm --filter @areyouagentic/api deploy --prod --legacy /out
+RUN pnpm --filter @areyouagentic/api deploy --prod /out
 
 # ── 5. runtime — minimal, non-root, dumb-init for clean shutdown ─────────
 FROM node:20-alpine AS runtime

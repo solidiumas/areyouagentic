@@ -47,7 +47,7 @@ RUN pnpm --filter @areyouagentic/db exec prisma generate \
 
 # ── 4. deploy — self-contained tree for the runtime image ────────────────
 FROM build AS deploy
-RUN pnpm --filter @areyouagentic/worker deploy --prod --legacy /out
+RUN pnpm --filter @areyouagentic/worker deploy --prod /out
 
 # ── 5. runtime — Playwright base, non-root, signal-safe ──────────────────
 # The Playwright image is large (~1.5GB) — it bundles Chromium + Firefox +
