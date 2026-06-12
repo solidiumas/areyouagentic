@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { ApiClientError, getJobStatus } from '@/lib/api';
+import { promoteDeleteToken } from '@/lib/delete-token';
 import type { JobStatus, JobStatusResponse } from '@areyouagentic/shared';
 
 const POLL_INTERVAL_MS = 1500;
@@ -83,6 +84,9 @@ export function AnalyzingChecklist({ jobId }: { jobId: string }) {
         }
 
         if (next.status === 'COMPLETED' && next.reportId) {
+          // Carry the one-time delete token from the job to the report so the
+          // report page can offer self-service deletion.
+          promoteDeleteToken(jobId, next.reportId);
           router.replace(`/report/${encodeURIComponent(next.reportId)}`);
           return;
         }

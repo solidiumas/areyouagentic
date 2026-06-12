@@ -43,19 +43,24 @@ type RequestOptions = {
   signal?: AbortSignal;
 };
 
+/**
+ * Mint a request id so the browser can quote it when reporting issues and so
+ * API logs can be correlated with frontend errors. The middleware also sets one
+ * for SSR/RSC traffic — this covers client-side fetches.
+ */
+function mintRequestId(): string {
+  return typeof crypto !== 'undefined' && typeof (crypto as Crypto).randomUUID === 'function'
+    ? (crypto as Crypto).randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 async function request<TResp>(
   path: string,
   init: RequestInit,
   responseSchema: ZodType<TResp>,
   { signal }: RequestOptions = {},
 ): Promise<TResp> {
-  // Mint a request id so the browser can quote it when reporting issues and
-  // so API logs can be correlated with frontend errors. The middleware also
-  // sets one for SSR/RSC traffic — this covers client-side fetches.
-  const requestId =
-    typeof crypto !== 'undefined' && typeof (crypto as Crypto).randomUUID === 'function'
-      ? (crypto as Crypto).randomUUID()
-      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const requestId = mintRequestId();
 
   let res: Response;
   try {
@@ -160,4 +165,32 @@ export async function getReport(
     reportResponseSchema,
     options,
   );
+}
+
+/**
+ * Delete a report using its one-time delete token. Resolves on 204; throws
+ * `ApiClientError` (code DELETE_FORBIDDEN / NOT_FOUND / …) otherwise.
+ */
+export async function deleteReport(reportId: string, token: string): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/api/reports/${encodeURIComponent(reportId)}`, {
+      method: 'DELETE',
+      headers: {
+        Accept: 'application/json',
+        'X-Request-Id': mintRequestId(),
+        'x-delete-token': token,
+      },
+    });
+  } catch (err) {
+    if ((err as Error).name === 'AbortError') throw err;
+    throw new ApiClientError(0, 'NETWORK_ERROR', 'Could not reach the server. Please try again.');
+  }
+
+  if (!res.ok) {
+    const text = await res.text();
+    const json: unknown = text.length > 0 ? safeParseJson(text) : null;
+    const parsed = parseError(json);
+    throw new ApiClientError(res.status, parsed.error.code, parsed.error.message, parsed.error.details);
+  }
 }

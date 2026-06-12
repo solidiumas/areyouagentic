@@ -12,6 +12,10 @@ export type AnalyzeRequest = z.infer<typeof analyzeRequestSchema>;
 
 export const analyzeResponseSchema = z.object({
   jobId: z.string().min(1),
+  /** Present when an existing job/report was reused instead of creating one. */
+  cached: z.literal(true).optional(),
+  /** One-time delete token — present only on a freshly created job. */
+  deleteToken: z.string().min(1).optional(),
 });
 export type AnalyzeResponse = z.infer<typeof analyzeResponseSchema>;
 

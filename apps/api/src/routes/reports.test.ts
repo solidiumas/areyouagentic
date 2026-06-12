@@ -1,6 +1,7 @@
 import { JobStatus, prisma } from '@areyouagentic/db';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { createDeleteToken } from '../lib/deleteToken.js';
 import { normalizeUrl } from '../lib/normalizeUrl.js';
 import {
   buildTestServer,
@@ -101,6 +102,19 @@ describe('GET /api/reports/:id', () => {
     });
   });
 
+  it('treats a cuid2-shaped id (not starting with c) as well-formed', async () => {
+    // cuid2 ids are lowercase alphanumeric and need not start with "c".
+    // A well-formed-but-nonexistent id must 404 (passes the regex), not 400.
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/reports/abcdefghij0123456789wxyz',
+      headers: uniqueIpHeader(),
+    });
+
+    expect(res.statusCode).toBe(404);
+    expect(res.json()).toMatchObject({ error: { code: 'NOT_FOUND' } });
+  });
+
   it('returns 400 for malformed ids', async () => {
     const res = await app.inject({
       method: 'GET',
@@ -151,5 +165,133 @@ describe('GET /api/reports/:id', () => {
 
     expect(res.statusCode).toBe(500);
     expect(res.json().error.code).toBe('INTERNAL_ERROR');
+  });
+});
+
+describe('DELETE /api/reports/:id', () => {
+  let app: FastifyInstance;
+
+  beforeAll(async () => {
+    app = await buildTestServer();
+  });
+
+  afterAll(async () => {
+    await closeTestServer(app);
+  });
+
+  beforeEach(async () => {
+    await resetRedis();
+    await resetDatabase();
+  });
+
+  async function seedReportWithToken() {
+    const { token, hash } = createDeleteToken();
+    const job = await prisma.analysisJob.create({
+      data: {
+        url: SAMPLE_URL,
+        normalizedUrl: normalizeUrl(SAMPLE_URL),
+        status: JobStatus.COMPLETED,
+        completedAt: new Date(),
+        deleteTokenHash: hash,
+      },
+    });
+    const report = await prisma.report.create({
+      data: {
+        jobId: job.id,
+        overallScore: 70,
+        grade: 'C',
+        machineReadabilityScore: 70,
+        structuredDataScore: 70,
+        agentSignalsScore: 70,
+        actionabilityScore: 70,
+        performanceScore: 70,
+        contentClarityScore: 70,
+        findings: [],
+        recommendations: [],
+        evidence: [],
+        finalUrl: SAMPLE_URL,
+      },
+    });
+    return { report, job, token };
+  }
+
+  it('deletes the report (and its job) with a valid token', async () => {
+    const { report, job, token } = await seedReportWithToken();
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/reports/${report.id}`,
+      headers: { ...uniqueIpHeader(), 'x-delete-token': token },
+    });
+
+    expect(res.statusCode).toBe(204);
+    expect(await prisma.report.findUnique({ where: { id: report.id } })).toBeNull();
+    expect(await prisma.analysisJob.findUnique({ where: { id: job.id } })).toBeNull();
+  });
+
+  it('returns 401 when no token is provided', async () => {
+    const { report } = await seedReportWithToken();
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/reports/${report.id}`,
+      headers: uniqueIpHeader(),
+    });
+    expect(res.statusCode).toBe(401);
+    expect(res.json().error.code).toBe('DELETE_TOKEN_REQUIRED');
+  });
+
+  it('returns 403 for a wrong token and keeps the report', async () => {
+    const { report } = await seedReportWithToken();
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/reports/${report.id}`,
+      headers: { ...uniqueIpHeader(), 'x-delete-token': 'definitely-not-the-token' },
+    });
+    expect(res.statusCode).toBe(403);
+    expect(await prisma.report.findUnique({ where: { id: report.id } })).not.toBeNull();
+  });
+
+  it('returns 403 for a report whose job has no delete token (legacy)', async () => {
+    const job = await prisma.analysisJob.create({
+      data: {
+        url: SAMPLE_URL,
+        normalizedUrl: normalizeUrl(SAMPLE_URL),
+        status: JobStatus.COMPLETED,
+        completedAt: new Date(),
+      },
+    });
+    const report = await prisma.report.create({
+      data: {
+        jobId: job.id,
+        overallScore: 70,
+        grade: 'C',
+        machineReadabilityScore: 70,
+        structuredDataScore: 70,
+        agentSignalsScore: 70,
+        actionabilityScore: 70,
+        performanceScore: 70,
+        contentClarityScore: 70,
+        findings: [],
+        recommendations: [],
+        evidence: [],
+        finalUrl: SAMPLE_URL,
+      },
+    });
+
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/reports/${report.id}`,
+      headers: { ...uniqueIpHeader(), 'x-delete-token': 'anything' },
+    });
+    expect(res.statusCode).toBe(403);
+  });
+
+  it('returns 404 for a well-formed but unknown id', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: '/api/reports/abcdefghij0123456789wxyz',
+      headers: { ...uniqueIpHeader(), 'x-delete-token': 'anything' },
+    });
+    expect(res.statusCode).toBe(404);
   });
 });

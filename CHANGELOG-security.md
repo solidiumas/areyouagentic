@@ -3,6 +3,42 @@
 Dated log of security-relevant changes. Newest first. See
 [SECURITY.md](SECURITY.md) for the threat model and overall posture.
 
+## 2026-06-11 — P1: report exposure & privacy
+
+### Added
+
+- **Self-service report deletion.** A one-time delete token is issued to
+  the submitter at analysis time (only its SHA-256 hash is stored, on the
+  job); `DELETE /api/reports/:id` requires the plaintext token. The report
+  page shows a **Delete report** control to the submitter (token carried in
+  `sessionStorage`). The 90-day retention cron remains the fallback.
+  Possession of the public report link alone cannot delete it.
+
+### Changed
+
+- **Report ids are now cuid2** (`@default(cuid(2))`) — cryptographically
+  random and unguessable. The report id is the only access control on a
+  public-but-unlisted report; a v1 cuid (timestamp + counter) was weakly
+  predictable. Legacy ids still resolve.
+- **Secret-bearing URL params are redacted before storage/display.**
+  `maskSensitiveUrl` (in `@areyouagentic/shared`) replaces the values of
+  `token`/`secret`/`password`/`auth`/`sig`/… params (and strips embedded
+  credentials) before a URL is written to `AnalysisJob.url` /
+  `Report.finalUrl` or sent to the LLM. The dedup key (`normalizedUrl`) and
+  the worker's fetch payload keep real values, so analysis still works and
+  distinct tokens never collapse to one report.
+- **Privacy page** reworded: reports are "public but unlisted", the
+  Anthropic disclosure now matches the code (a structured summary — scores,
+  finding titles, page title, final URL — not raw page text), and the
+  data-deletion section points at the real delete control.
+
+### Fixed
+
+- **Broken GitHub / SECURITY.md links.** The footer, privacy page, and the
+  `SECURITY.md` advisory URL pointed at a non-existent `areyouagentic` org.
+  They now point at `github.com/solidiumas/areyouagentic`, so the
+  vulnerability-reporting channel actually resolves.
+
 ## 2026-06-11 — P0: render-stage SSRF gate
 
 ### Fixed

@@ -8,7 +8,13 @@ import {
   type AnalysisInput,
   type AnalyzerResult,
 } from '@areyouagentic/analyzers';
-import { GRADE_THRESHOLDS, SCORE_WEIGHTS, type Dimension, type Grade } from '@areyouagentic/shared';
+import {
+  GRADE_THRESHOLDS,
+  SCORE_WEIGHTS,
+  maskSensitiveUrl,
+  type Dimension,
+  type Grade,
+} from '@areyouagentic/shared';
 import { llmAnalyze, llmConfigured } from '../../lib/llm.js';
 import type { AnalysisContext, Stage } from '../context.js';
 
@@ -111,7 +117,8 @@ export const analyzeStage: Stage = async (ctx: AnalysisContext) => {
         overall,
         grade,
         pageTitle: ctx.pageTitle ?? null,
-        finalUrl: ctx.finalUrl ?? ctx.url,
+        // Redact secrets before the URL leaves our infra for the LLM provider.
+        finalUrl: maskSensitiveUrl(ctx.finalUrl ?? ctx.url),
         topFindings,
         hasRobotsTxt: Boolean(ctx.robotsTxt),
         hasLlmsTxt: Boolean(ctx.llmsTxt),

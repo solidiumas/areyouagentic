@@ -7,7 +7,7 @@ If you believe you have found a security vulnerability in
 **do not open a public GitHub issue**. Instead, report it privately:
 
 - Open a private security advisory at
-  [github.com/areyouagentic/areyouagentic/security/advisories/new](https://github.com/areyouagentic/areyouagentic/security/advisories/new),
+  [github.com/solidiumas/areyouagentic/security/advisories/new](https://github.com/solidiumas/areyouagentic/security/advisories/new),
   or
 - Email `security@areyouagentic.com` (PGP key on request).
 
@@ -137,8 +137,19 @@ a high-effort attack against a low-value target.
   ([`packages/shared/src/schemas/api.ts`](packages/shared/src/schemas/api.ts)).
 - Request body limit: **10 KB** per request (also enforced at the route
   level on `POST /api/analyze`).
-- Path params validated against the cuid format (`/^c[a-z0-9]{20,32}$/`)
-  _before_ any DB query, so malformed IDs cost a regex match, not a query.
+- Path params validated against the cuid/cuid2 format _before_ any DB
+  query, so malformed IDs cost a regex match, not a query. **Report ids are
+  cuid2** (`@default(cuid(2))`) — cryptographically random and unguessable,
+  since the id is the only access control on a public-but-unlisted report.
+- **Secret redaction.** `maskSensitiveUrl` redacts secret-bearing query
+  params (`token`, `secret`, `auth`, `sig`, …) and embedded credentials
+  before a URL is persisted (`AnalysisJob.url`, `Report.finalUrl`) or sent
+  to the LLM. The dedup key (`normalizedUrl`) and the worker's fetch payload
+  keep real values.
+- **Self-service deletion.** `DELETE /api/reports/:id` requires the
+  one-time delete token issued at submit (only its SHA-256 hash is stored);
+  the token is compared in constant time. Possession of the public report
+  link alone is not sufficient.
 - **Rate limiting** (Redis-backed, per IP, via `@fastify/rate-limit`):
   - Global: 30 req/min/IP.
   - `POST /api/analyze`: 5 req/min/IP **and** 20 req/day/IP. Both must pass.

@@ -11,7 +11,8 @@ export async function registerCors(app: FastifyInstance): Promise<void> {
   await app.register(cors, {
     origin: isProd ? [env.APP_URL] : true,
     credentials: true,
-    methods: ['GET', 'POST', 'OPTIONS'],
+    methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'X-Request-Id', 'x-delete-token'],
     maxAge: 600,
   });
 }
