@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -8,9 +9,11 @@ import { z } from 'zod';
 import { ArrowRight, Loader2 } from 'lucide-react';
 
 import { ApiClientError, postAnalyze } from '@/lib/api';
+import { rememberDeleteTokenForJob } from '@/lib/delete-token';
 import { urlSchema } from '@areyouagentic/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TurnstileWidget, TURNSTILE_SITE_KEY } from '@/components/turnstile-widget';
 
 const formSchema = z.object({
   url: urlSchema,
@@ -42,6 +45,8 @@ function errorMessage(err: unknown): string {
 export function UrlForm() {
   const router = useRouter();
   const [serverError, setServerError] = React.useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = React.useState<string | null>(null);
+  const handleToken = React.useCallback((token: string | null) => setTurnstileToken(token), []);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   const {
@@ -59,8 +64,16 @@ export function UrlForm() {
 
   const onSubmit = handleSubmit(async (values) => {
     setServerError(null);
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setServerError('Please complete the verification challenge below.');
+      return;
+    }
     try {
-      const { jobId } = await postAnalyze({ url: values.url });
+      const { jobId, deleteToken } = await postAnalyze(
+        { url: values.url },
+        { turnstileToken: turnstileToken ?? undefined },
+      );
+      if (deleteToken) rememberDeleteTokenForJob(jobId, deleteToken);
       router.push(`/analyzing/${encodeURIComponent(jobId)}`);
     } catch (err) {
       setServerError(errorMessage(err));
@@ -131,6 +144,8 @@ export function UrlForm() {
         ) : null}
       </div>
 
+      <TurnstileWidget onToken={handleToken} />
+
       <ul className="mt-4 flex flex-wrap gap-2" aria-label="Example URLs">
         {EXAMPLES.map((ex) => (
           <li key={ex.url}>
@@ -148,6 +163,16 @@ export function UrlForm() {
           </li>
         ))}
       </ul>
+
+      <p className="mt-4 max-w-2xl text-xs leading-relaxed text-muted-foreground">
+        Analyze only sites you own or have permission to test. Reports are public to anyone with the
+        link, so don&rsquo;t submit private or internal URLs or links containing tokens. Public page
+        content may be sent to our AI provider (Anthropic) to generate recommendations.{' '}
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
+          Privacy
+        </Link>
+        .
+      </p>
     </div>
   );
 }

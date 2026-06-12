@@ -18,7 +18,10 @@ export const renderStage: Stage = async (ctx: AnalysisContext): Promise<Analysis
   // with a leak-free message (the resolved IP stays in the server log only).
   const nav = await assertNavigableUrl(ctx.url);
   if (!nav.ok) {
-    ctx.log.warn({ reason: nav.reason, detail: nav.message }, 'render: target blocked pre-navigation');
+    ctx.log.warn(
+      { reason: nav.reason, detail: nav.message },
+      'render: target blocked pre-navigation',
+    );
     if (nav.reason === 'dns-failed') {
       // Transient — let BullMQ retry rather than burning the permanent path.
       throw new Error('render: DNS resolution failed');

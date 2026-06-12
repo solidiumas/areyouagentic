@@ -5,6 +5,7 @@ import { SiteFooter } from '@/components/site-footer';
 import { SiteHeader } from '@/components/site-header';
 import { ThemeProvider } from '@/components/theme-provider';
 import { siteConfig } from '@/lib/site';
+import { serializeJsonLd } from '@areyouagentic/shared';
 
 import './globals.css';
 
@@ -122,11 +123,11 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         </ThemeProvider>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(organizationLd) }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(webApplicationLd) }}
+          dangerouslySetInnerHTML={{ __html: serializeJsonLd(webApplicationLd) }}
         />
       </body>
     </html>

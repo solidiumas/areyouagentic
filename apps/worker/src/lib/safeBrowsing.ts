@@ -77,8 +77,10 @@ export async function installSsrfGuard(
   const block = (route: Route, request: PlaywrightRequest, reason: string): Promise<void> => {
     state.blockedRequests += 1;
     if (request.isNavigationRequest()) state.navigationBlock = { reason };
-    log.warn({ url: request.url(), reason, navigation: request.isNavigationRequest() },
-      'ssrf-guard: blocked request');
+    log.warn(
+      { url: request.url(), reason, navigation: request.isNavigationRequest() },
+      'ssrf-guard: blocked request',
+    );
     return route.abort('blockedbyclient');
   };
 

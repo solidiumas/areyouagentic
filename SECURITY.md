@@ -7,7 +7,7 @@ If you believe you have found a security vulnerability in
 **do not open a public GitHub issue**. Instead, report it privately:
 
 - Open a private security advisory at
-  [github.com/areyouagentic/areyouagentic/security/advisories/new](https://github.com/areyouagentic/areyouagentic/security/advisories/new),
+  [github.com/solidiumas/areyouagentic/security/advisories/new](https://github.com/solidiumas/areyouagentic/security/advisories/new),
   or
 - Email `security@areyouagentic.com` (PGP key on request).
 
@@ -36,7 +36,7 @@ haven't designed mitigations for it).
 ### In scope
 
 1. **SSRF via the analyzer pipeline.** A user submits a URL; the worker
-   both *fetches* it (`safeFetch`) and *renders* it in a headless browser
+   both _fetches_ it (`safeFetch`) and _renders_ it in a headless browser
    (Playwright). An attacker could try to coerce either path into reaching
    internal services (cloud metadata, RFC1918 networks, loopback) directly
    or via DNS-rebinding / redirect chains, including JavaScript-driven
@@ -137,8 +137,19 @@ a high-effort attack against a low-value target.
   ([`packages/shared/src/schemas/api.ts`](packages/shared/src/schemas/api.ts)).
 - Request body limit: **10 KB** per request (also enforced at the route
   level on `POST /api/analyze`).
-- Path params validated against the cuid format (`/^c[a-z0-9]{20,32}$/`)
-  _before_ any DB query, so malformed IDs cost a regex match, not a query.
+- Path params validated against the cuid/cuid2 format _before_ any DB
+  query, so malformed IDs cost a regex match, not a query. **Report ids are
+  cuid2** (`@default(cuid(2))`) — cryptographically random and unguessable,
+  since the id is the only access control on a public-but-unlisted report.
+- **Secret redaction.** `maskSensitiveUrl` redacts secret-bearing query
+  params (`token`, `secret`, `auth`, `sig`, …) and embedded credentials
+  before a URL is persisted (`AnalysisJob.url`, `Report.finalUrl`) or sent
+  to the LLM. The dedup key (`normalizedUrl`) and the worker's fetch payload
+  keep real values.
+- **Self-service deletion.** `DELETE /api/reports/:id` requires the
+  one-time delete token issued at submit (only its SHA-256 hash is stored);
+  the token is compared in constant time. Possession of the public report
+  link alone is not sufficient.
 - **Rate limiting** (Redis-backed, per IP, via `@fastify/rate-limit`):
   - Global: 30 req/min/IP.
   - `POST /api/analyze`: 5 req/min/IP **and** 20 req/day/IP. Both must pass.
@@ -233,10 +244,12 @@ screenshots via signed URLs rather than a world-readable bucket.
 These are weaknesses we have _not_ mitigated, listed openly so reporters
 don't waste time and operators know what to watch for.
 
-- **No bot/CAPTCHA gate on `POST /api/analyze`.** Rate limiting is per-IP,
-  which a determined attacker can rotate around. If we see organized abuse
-  in production we will add CloudFlare Turnstile (or similar) to the
-  analyze submission flow. The hooks for that aren't in the code yet.
+- **Bot/CAPTCHA gate is opt-in.** Rate limiting is per-IP, which a
+  determined attacker can rotate around. A Cloudflare Turnstile gate on
+  `POST /api/analyze` is wired in (`apps/api/src/lib/turnstile.ts` +
+  the `TurnstileWidget`) but **off by default** — it activates only when
+  `TURNSTILE_SECRET_KEY` / `NEXT_PUBLIC_TURNSTILE_SITE_KEY` are set. Enable
+  it in production if organized abuse appears. When enabled it fails closed.
 - **No read-only DB role.** All services connect with the same Postgres
   user. Splitting into a writer (API + worker) and a reader (the
   `GET /api/reports/:id` handler could use a separate role) is a sensible

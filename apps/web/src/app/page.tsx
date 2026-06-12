@@ -5,6 +5,7 @@ import { UrlForm } from '@/components/url-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { siteConfig } from '@/lib/site';
+import { serializeJsonLd } from '@areyouagentic/shared';
 
 // Render server-side so AI agents and search crawlers see the full page.
 export const dynamic = 'force-static';
@@ -170,7 +171,7 @@ export default function HomePage() {
 
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(faqLd) }}
       />
     </>
   );

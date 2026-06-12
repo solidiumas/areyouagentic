@@ -22,7 +22,14 @@ export default function PrivacyPage() {
         <h2 className="mt-10 text-2xl font-semibold">URLs you submit</h2>
         <p>
           When you submit a URL for analysis we store the URL, a normalized version, and the report
-          we produce. Reports are public by id but not indexed by search engines.
+          we produce.
+        </p>
+        <p>
+          Reports are <strong>public but unlisted</strong>: they are not indexed by search engines,
+          but anyone who has the report link can open it. Treat a report link like a shareable
+          secret. Do not submit private links, internal systems, pages behind authentication, or
+          URLs containing tokens — we strip obvious tracking parameters, but you should not rely on
+          a URL staying private.
         </p>
 
         <h2 className="mt-8 text-2xl font-semibold">Retention</h2>
@@ -46,16 +53,30 @@ export default function PrivacyPage() {
 
         <h2 className="mt-8 text-2xl font-semibold">Third parties</h2>
         <p>
-          Our analysis pipeline sends a short summary of the page text to Anthropic&rsquo;s Claude
-          API for recommendation generation. No request metadata or personal data is forwarded —
-          only the public content of the page being analyzed.
+          To generate the written recommendations, our pipeline sends a{' '}
+          <strong>structured summary of the analysis</strong> to Anthropic&rsquo;s Claude API: the
+          per-dimension scores, the titles of the top findings, the page title, and the final URL.
+          We do <strong>not</strong> send the raw page text, request metadata, cookies, or
+          authorization headers. This step is skipped entirely when no AI key is configured.
         </p>
 
         <h2 className="mt-8 text-2xl font-semibold">Data deletion</h2>
         <p>
-          To request earlier deletion of a report or any associated data, contact us via{' '}
-          <a href={siteConfig.links.github}>GitHub</a>. To report a security issue, see{' '}
-          <a href={`${siteConfig.links.github}/blob/main/SECURITY.md`}>SECURITY.md</a>.
+          You can delete a report yourself using the <strong>Delete report</strong> control shown on
+          the report page right after analysis — keep the delete link it gives you, as it is shown
+          only once. Otherwise reports are removed automatically after 90 days. For anything else,
+          contact us via{' '}
+          <a href={siteConfig.links.github} rel="noopener noreferrer" target="_blank">
+            GitHub
+          </a>
+          .
+        </p>
+        <p>
+          To report a security vulnerability, see{' '}
+          <a href={siteConfig.links.security} rel="noopener noreferrer" target="_blank">
+            SECURITY.md
+          </a>
+          .
         </p>
       </section>
     </article>

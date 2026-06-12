@@ -2,7 +2,13 @@ import { randomUUID } from 'node:crypto';
 import { Prisma, prisma } from '@areyouagentic/db';
 import type { PrismaTypes } from '@areyouagentic/db';
 import type { AnalyzerResult } from '@areyouagentic/analyzers';
-import type { Dimension, EvidenceItem, Finding, Recommendation } from '@areyouagentic/shared';
+import {
+  maskSensitiveUrl,
+  type Dimension,
+  type EvidenceItem,
+  type Finding,
+  type Recommendation,
+} from '@areyouagentic/shared';
 import { uploadScreenshot } from '../../lib/r2.js';
 import type { AnalysisContext, Stage } from '../context.js';
 
@@ -106,7 +112,8 @@ export const persistStage: Stage = async (ctx: AnalysisContext) => {
       recommendations: recommendations as unknown as PrismaTypes.InputJsonValue,
       evidence: evidence as unknown as PrismaTypes.InputJsonValue,
       pageTitle: ctx.pageTitle ?? null,
-      finalUrl: ctx.finalUrl ?? ctx.url,
+      // Report is public — redact secret-bearing query params before storing.
+      finalUrl: maskSensitiveUrl(ctx.finalUrl ?? ctx.url),
       llmVerdict: ctx.llmInsight?.verdict ?? null,
       llmQuickWins: ctx.llmInsight
         ? (ctx.llmInsight.quickWins as unknown as PrismaTypes.InputJsonValue)

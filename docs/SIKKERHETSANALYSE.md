@@ -16,23 +16,23 @@ Kodebasen er **vesentlig mer moden enn den passive gjennomgangen antok**. Det fi
 
 Den passive rapporten treffer riktige temaer, men siden den ikke så koden bommer den på alvorlighetsgrad flere steder. Noen funn er allerede løst i koden, ett er **verre** enn antatt.
 
-| Funn i rapporten | Faktisk status i koden |
-|---|---|
-| 3.1 SSRF (kritisk) | **Delvis løst, delvis reelt og verre.** `validateAnalyzableUrl` (`packages/shared/src/schemas/url.ts`) + `safeFetch` (`apps/worker/src/lib/safeFetch.ts`) er førsteklasses for *fetch*-stien. Men **render-steget bypasser alt** (se Del 3). |
-| 3.2 Offentlige rapporter via ID | **Korrekt.** `GET /api/reports/:id` har ingen auth, ID-en er `cuid()` (v1 — tidsstempel + teller, svakt gjettbar), `Cache-Control: public`. Full URL med query-string lagres og vises rått. |
-| 3.3 Ødelagte GitHub-/SECURITY-lenker | **Korrekt.** `siteConfig.links.github = https://github.com/areyouagentic` (en org, ikke et repo). Privacy-siden lenker til `github.com/areyouagentic/blob/main/SECURITY.md` — **garantert 404** (mangler repo-navn). |
-| 3.4 Misbruk uten innlogging | **Delvis løst.** Rate limiting finnes (`apps/api/src/lib/rateLimiter.ts`): globalt 30/min, analyze 5/min + 20/dag per IP. Kun per-IP; ingen CAPTCHA eller per-domene-grense. |
-| 3.5 Innhold til Anthropic | **Mindre ille enn antatt.** Kun et *strukturert sammendrag* (score, funn-titler, sidetittel, URL, booleans) sendes — **ikke** rå sidetekst (`apps/worker/src/lib/llm.ts`). Privacy-siden overdriver ("short summary of the page text"). |
-| 3.6 Stored XSS | **I praksis løst.** Rapporten rendres med React/JSX (auto-escaping), ingen `dangerouslySetInnerHTML` for rapportinnhold. De tre `dangerouslySetInnerHTML` er statisk JSON-LD uten brukerinput. Streng CSP finnes i `next.config.ts`. |
-| 3.7 Prompt injection | **Reelt, men lav effekt by design.** LLM-en får aldri rå sidetekst, og deterministiske analyzere bestemmer scoren — LLM-en skriver bare verdikt/quick-wins. Eneste angreps-flate er sidetittel/URL i prompten. |
-| 3.8 "Not indexed" ≠ privat | **Korrekt.** Privacy-siden sier nettopp dette; ingen advarsel før analyse. |
-| 3.9 Ingen selvbetjent sletting | **Korrekt.** Ingen DELETE-rute; kun 90-dagers cron (`apps/worker/src/retention.ts`) eller "kontakt oss via GitHub" (ødelagt lenke). |
-| 3.10 UX/troverdighet | De ødelagte lenkene er det reelle her. |
+| Funn i rapporten                     | Faktisk status i koden                                                                                                                                                                                                                       |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 3.1 SSRF (kritisk)                   | **Delvis løst, delvis reelt og verre.** `validateAnalyzableUrl` (`packages/shared/src/schemas/url.ts`) + `safeFetch` (`apps/worker/src/lib/safeFetch.ts`) er førsteklasses for _fetch_-stien. Men **render-steget bypasser alt** (se Del 3). |
+| 3.2 Offentlige rapporter via ID      | **Korrekt.** `GET /api/reports/:id` har ingen auth, ID-en er `cuid()` (v1 — tidsstempel + teller, svakt gjettbar), `Cache-Control: public`. Full URL med query-string lagres og vises rått.                                                  |
+| 3.3 Ødelagte GitHub-/SECURITY-lenker | **Korrekt.** `siteConfig.links.github = https://github.com/areyouagentic` (en org, ikke et repo). Privacy-siden lenker til `github.com/areyouagentic/blob/main/SECURITY.md` — **garantert 404** (mangler repo-navn).                         |
+| 3.4 Misbruk uten innlogging          | **Delvis løst.** Rate limiting finnes (`apps/api/src/lib/rateLimiter.ts`): globalt 30/min, analyze 5/min + 20/dag per IP. Kun per-IP; ingen CAPTCHA eller per-domene-grense.                                                                 |
+| 3.5 Innhold til Anthropic            | **Mindre ille enn antatt.** Kun et _strukturert sammendrag_ (score, funn-titler, sidetittel, URL, booleans) sendes — **ikke** rå sidetekst (`apps/worker/src/lib/llm.ts`). Privacy-siden overdriver ("short summary of the page text").      |
+| 3.6 Stored XSS                       | **I praksis løst.** Rapporten rendres med React/JSX (auto-escaping), ingen `dangerouslySetInnerHTML` for rapportinnhold. De tre `dangerouslySetInnerHTML` er statisk JSON-LD uten brukerinput. Streng CSP finnes i `next.config.ts`.         |
+| 3.7 Prompt injection                 | **Reelt, men lav effekt by design.** LLM-en får aldri rå sidetekst, og deterministiske analyzere bestemmer scoren — LLM-en skriver bare verdikt/quick-wins. Eneste angreps-flate er sidetittel/URL i prompten.                               |
+| 3.8 "Not indexed" ≠ privat           | **Korrekt.** Privacy-siden sier nettopp dette; ingen advarsel før analyse.                                                                                                                                                                   |
+| 3.9 Ingen selvbetjent sletting       | **Korrekt.** Ingen DELETE-rute; kun 90-dagers cron (`apps/worker/src/retention.ts`) eller "kontakt oss via GitHub" (ødelagt lenke).                                                                                                          |
+| 3.10 UX/troverdighet                 | De ødelagte lenkene er det reelle her.                                                                                                                                                                                                       |
 
 ### Funn gjennomgangen ikke hadde (fra kodelesing)
 
 - **A. Render-steg-SSRF (kritisk)** — hovedfunnet, se Del 3.
-- **B. SSRF-orakel via feilmelding.** `safeFetch` returnerer f.eks. *"Hostname X resolves to 10.0.0.5, which is in a blocked range"*. Dette lagres som `errorMessage` og vises i UI-et (`apps/web/src/components/analyzing-checklist.tsx`) via `GET /api/jobs/:id`. En bruker kan dermed kartlegge intern DNS/IP.
+- **B. SSRF-orakel via feilmelding.** `safeFetch` returnerer f.eks. _"Hostname X resolves to 10.0.0.5, which is in a blocked range"_. Dette lagres som `errorMessage` og vises i UI-et (`apps/web/src/components/analyzing-checklist.tsx`) via `GET /api/jobs/:id`. En bruker kan dermed kartlegge intern DNS/IP.
 - **C. Skjermbilde i offentlig R2.** Render lagrer fullside-screenshot i R2 med offentlig URL. Kombinert med funn A = intern-innhold kan eksfiltreres til en offentlig bøtte.
 - **D. Doc/virkelighet-gap.** `SECURITY.md` og privacy-siden beskriver vern/databehandling som ikke stemmer med koden — i seg selv en tillits- og compliance-risiko.
 
@@ -79,7 +79,7 @@ Nettleser ──POST /api/analyze──▶ VERCEL: apps/web (Next.js SSR + CSP/H
 
 `apps/worker/src/pipeline/runAnalysis.ts` sier det selv i kommentaren:
 
-> *"fetch and render are independent (render goes to the URL itself, it doesn't need rawHtml) → run in parallel"*
+> _"fetch and render are independent (render goes to the URL itself, it doesn't need rawHtml) → run in parallel"_
 
 `apps/worker/src/pipeline/stages/render.ts` gjør `await page.goto(ctx.url, …)` direkte. Konsekvenser:
 
@@ -98,7 +98,7 @@ Nettleser ──POST /api/analyze──▶ VERCEL: apps/web (Next.js SSR + CSP/H
 ### P0 — Kritisk, fikses først
 
 1. **Lukk render-steg-SSRF.** Tre lag, helst alle:
-   - **App-lag (nødvendig):** Resolver verten via `resolveHostnameSafely` *før* `page.goto`; avvis blokkerte mål med `PermanentJobError`. Bruk `context.route('**/*', …)` som revaliderer hver request (shape + DNS-klassifisering) og `route.abort()`-er blokkerte mål — dekker hovednavigasjon, redirects og JS-drevne subrequests. Cap antall redirects.
+   - **App-lag (nødvendig):** Resolver verten via `resolveHostnameSafely` _før_ `page.goto`; avvis blokkerte mål med `PermanentJobError`. Bruk `context.route('**/*', …)` som revaliderer hver request (shape + DNS-klassifisering) og `route.abort()`-er blokkerte mål — dekker hovednavigasjon, redirects og JS-drevne subrequests. Cap antall redirects.
    - **Nettverkslag (defense-in-depth):** Blokker egress fra worker-containeren til `169.254.169.254`, `10/8`, `172.16/12`, `192.168/16`, `127/8`, `fc00::/7`, `fe80::/10`. Skal ikke avhenge av plattformen.
 2. **Stopp intern-IP-lekkasje i feilmeldinger.** Map `safeFetch`-reasons til generiske brukermeldinger; behold detaljene kun i server-logg (`fetch.ts`, `runAnalysis.ts` → `errorMessage`).
 3. **R2-hardening (deploy):** ikke gjør bøtta listbar; vurder signerte URL-er. (Render-fiksen fjerner selve eksfiltreringsvektoren.)
