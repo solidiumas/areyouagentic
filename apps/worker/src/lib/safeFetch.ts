@@ -31,6 +31,37 @@ export type SafeFetchOk = {
 
 export type SafeFetchResult = SafeFetchOk | SafeFetchError;
 
+/** Generic, leak-free message surfaced to users for a blocked target. */
+export const BLOCKED_TARGET_MESSAGE = 'This URL is not allowed for analysis.';
+
+/**
+ * Map a {@link SafeFetchError} to a message that is safe to show an end user.
+ * The structured `reason` and any internal detail (e.g. a resolved private IP
+ * from a DNS-rebinding attempt) stay in the server logs; users get a stable,
+ * non-revealing sentence. This is what prevents the analyzer's error path from
+ * doubling as an internal-network/DNS oracle.
+ */
+export function safeFetchUserMessage(err: SafeFetchError): string {
+  switch (err.reason) {
+    case 'blocked-host':
+    case 'invalid-url':
+      return BLOCKED_TARGET_MESSAGE;
+    case 'dns-failed':
+      return "The site's DNS name could not be resolved.";
+    case 'too-many-redirects':
+      return 'The site redirected too many times.';
+    case 'response-too-large':
+      return 'The page is too large to analyze.';
+    case 'timeout':
+      return 'The site took too long to respond.';
+    case 'http-error':
+      return err.status ? `The site returned HTTP ${err.status}.` : 'The site returned an error.';
+    case 'network':
+    default:
+      return 'The site could not be reached.';
+  }
+}
+
 export type SafeFetchOptions = {
   /** Max redirect hops. Each hop is re-validated for SSRF. */
   maxRedirects?: number;

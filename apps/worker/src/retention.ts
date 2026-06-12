@@ -32,7 +32,7 @@ export async function deleteExpiredJobs(now: Date = new Date()): Promise<number>
     if (batch.length === 0) break;
 
     const result = await prisma.analysisJob.deleteMany({
-      where: { id: { in: batch.map((j) => j.id) } },
+      where: { id: { in: batch.map((j: { id: string }) => j.id) } },
     });
     totalDeleted += result.count;
 

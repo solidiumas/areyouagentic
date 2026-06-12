@@ -9,7 +9,12 @@ vi.mock('node:dns/promises', () => ({
 
 const fetchMock = vi.hoisted(() => vi.fn());
 
-import { safeFetch, resolveHostnameSafely } from './safeFetch.js';
+import {
+  safeFetch,
+  resolveHostnameSafely,
+  safeFetchUserMessage,
+  BLOCKED_TARGET_MESSAGE,
+} from './safeFetch.js';
 
 describe('resolveHostnameSafely', () => {
   beforeEach(() => {
@@ -155,5 +160,49 @@ describe('safeFetch — URL validation gate', () => {
     const result = await safeFetch('http://example.com/', { maxRedirects: 2 });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('too-many-redirects');
+  });
+});
+
+describe('safeFetchUserMessage', () => {
+  it('returns a leak-free message for a blocked host (no IP in output)', () => {
+    const msg = safeFetchUserMessage({
+      ok: false,
+      reason: 'blocked-host',
+      message: 'Hostname evil.example.com resolves to 10.0.0.5, which is in a blocked range',
+    });
+    expect(msg).toBe(BLOCKED_TARGET_MESSAGE);
+    expect(msg).not.toMatch(/10\.0\.0\.5/);
+    expect(msg).not.toMatch(/evil\.example\.com/);
+  });
+
+  it('never echoes the internal detail for any reason', () => {
+    const reasons = [
+      'invalid-url',
+      'dns-failed',
+      'too-many-redirects',
+      'response-too-large',
+      'timeout',
+      'network',
+    ] as const;
+    for (const reason of reasons) {
+      const msg = safeFetchUserMessage({
+        ok: false,
+        reason,
+        message: 'secret-internal-host-10.1.2.3 detail',
+      });
+      expect(msg).not.toMatch(/10\.1\.2\.3/);
+      expect(msg).not.toMatch(/secret-internal-host/);
+      expect(msg.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('surfaces only the upstream HTTP status for http-error', () => {
+    const msg = safeFetchUserMessage({
+      ok: false,
+      reason: 'http-error',
+      message: 'Upstream returned 503',
+      status: 503,
+    });
+    expect(msg).toContain('503');
   });
 });

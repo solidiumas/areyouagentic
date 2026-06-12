@@ -3,6 +3,36 @@
 Dated log of security-relevant changes. Newest first. See
 [SECURITY.md](SECURITY.md) for the threat model and overall posture.
 
+## 2026-06-11 — P0: render-stage SSRF gate
+
+### Fixed
+
+- **Critical: SSRF via the Playwright render stage.** The render stage
+  navigated a headless browser directly at the user URL (`page.goto`),
+  bypassing every `safeFetch` SSRF defense — Chromium did its own DNS
+  resolution and followed redirects automatically, so DNS-rebinding,
+  redirect-to-metadata, and JavaScript-driven `fetch()` to internal hosts
+  were all reachable and could be exfiltrated via the stored screenshot.
+  Closed by the new `apps/worker/src/lib/safeBrowsing.ts`:
+  - `assertNavigableUrl` validates + DNS-resolves the target before
+    `page.goto`; a directly-private or rebinding target fails fast and
+    permanently.
+  - `installSsrfGuard` registers a `context.route('**/*')` handler that
+    re-validates every browser request (main navigation, redirect hops,
+    JS-driven sub-resources) and aborts anything in a blocked range.
+  - Covered by `safeBrowsing.test.ts` (14 cases).
+- **Internal-network error oracle.** `safeFetch` error messages (which
+  named the resolved private IP) were stored as the job `errorMessage`
+  and shown in the UI, letting a user map internal DNS/IPs. The fetch and
+  render stages now surface a generic, leak-free message via
+  `safeFetchUserMessage`; the detail stays in the server log only.
+
+### Added
+
+- **Deployment hardening note** in `SECURITY.md`: the worker host must
+  block outbound traffic to internal ranges (metadata, RFC1918,
+  loopback, link-local) as defense-in-depth behind the app-layer gates.
+
 ## 2026-05-11 — Hardening pass
 
 ### Added
