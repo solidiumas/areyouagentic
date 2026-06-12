@@ -36,7 +36,7 @@ haven't designed mitigations for it).
 ### In scope
 
 1. **SSRF via the analyzer pipeline.** A user submits a URL; the worker
-   both *fetches* it (`safeFetch`) and *renders* it in a headless browser
+   both _fetches_ it (`safeFetch`) and _renders_ it in a headless browser
    (Playwright). An attacker could try to coerce either path into reaching
    internal services (cloud metadata, RFC1918 networks, loopback) directly
    or via DNS-rebinding / redirect chains, including JavaScript-driven

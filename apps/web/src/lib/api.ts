@@ -196,6 +196,11 @@ export async function deleteReport(reportId: string, token: string): Promise<voi
     const text = await res.text();
     const json: unknown = text.length > 0 ? safeParseJson(text) : null;
     const parsed = parseError(json);
-    throw new ApiClientError(res.status, parsed.error.code, parsed.error.message, parsed.error.details);
+    throw new ApiClientError(
+      res.status,
+      parsed.error.code,
+      parsed.error.message,
+      parsed.error.details,
+    );
   }
 }

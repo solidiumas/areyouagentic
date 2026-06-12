@@ -14,17 +14,26 @@ afterEach(() => {
 
 describe('siteverify', () => {
   it('returns true only on an explicit success', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ success: true })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ success: true })),
+    );
     expect(await siteverify('secret', 'token')).toBe(true);
   });
 
   it('returns false when Cloudflare reports failure', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => jsonResponse({ success: false, 'error-codes': ['x'] })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ success: false, 'error-codes': ['x'] })),
+    );
     expect(await siteverify('secret', 'token')).toBe(false);
   });
 
   it('returns false on a non-2xx response', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => new Response('nope', { status: 500 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('nope', { status: 500 })),
+    );
     expect(await siteverify('secret', 'token')).toBe(false);
   });
 

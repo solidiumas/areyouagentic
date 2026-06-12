@@ -77,7 +77,8 @@ export function DeleteReportButton({ reportId }: { reportId: string }) {
       </h2>
       <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
         You submitted this analysis, so you can delete it. This removes the report and its stored
-        data immediately and cannot be undone. The delete option is only available from this browser.
+        data immediately and cannot be undone. The delete option is only available from this
+        browser.
       </p>
 
       {status === 'confirming' ? (
