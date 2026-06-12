@@ -1,6 +1,6 @@
 import { load } from 'cheerio';
 import { TIMEOUTS } from '@areyouagentic/shared';
-import { safeFetch } from '../../lib/safeFetch.js';
+import { safeFetch, safeFetchUserMessage } from '../../lib/safeFetch.js';
 import { PermanentJobError } from '../context.js';
 import type { AnalysisContext, Stage } from '../context.js';
 
@@ -21,10 +21,14 @@ export const fetchStage: Stage = async (ctx: AnalysisContext) => {
 
   if (!mainResult.ok) {
     const { reason, message, status } = mainResult;
+    // Full detail (incl. any resolved private IP) stays in the server log; the
+    // thrown message becomes the user-facing errorMessage, so keep it leak-free.
+    ctx.log.warn({ reason, status, detail: message }, 'fetch stage: upstream fetch failed');
+    const userMessage = safeFetchUserMessage(mainResult);
     if (isPermanent(reason, status)) {
-      throw new PermanentJobError(`Fetch failed (${reason}): ${message}`);
+      throw new PermanentJobError(userMessage);
     }
-    throw new Error(`Fetch failed (${reason}): ${message}`);
+    throw new Error(userMessage);
   }
 
   const { finalUrl, body } = mainResult;

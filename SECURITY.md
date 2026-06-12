@@ -36,9 +36,11 @@ haven't designed mitigations for it).
 ### In scope
 
 1. **SSRF via the analyzer pipeline.** A user submits a URL; the worker
-   fetches that URL. An attacker could try to coerce the worker into
-   reaching internal services (cloud metadata, RFC1918 networks, loopback)
-   either directly or via DNS-rebinding / redirect chains.
+   both *fetches* it (`safeFetch`) and *renders* it in a headless browser
+   (Playwright). An attacker could try to coerce either path into reaching
+   internal services (cloud metadata, RFC1918 networks, loopback) directly
+   or via DNS-rebinding / redirect chains, including JavaScript-driven
+   sub-requests made by a hostile page during rendering.
 2. **Unauthenticated abuse of the public API.** Rate-limit bypass, mass
    enqueueing of jobs, denial of service of the analysis queue.
 3. **Injection into stored reports.** Arbitrary URLs become part of stored
@@ -63,7 +65,10 @@ haven't designed mitigations for it).
 
 ### SSRF defense (the big one)
 
-User-submitted URLs go through **two** independent gates before the worker
+The worker reaches a target over **two** code paths — `safeFetch` (HTML +
+robots/sitemap probes) and the Playwright **render** stage. Both are gated.
+
+User-submitted URLs go through these independent gates before the worker
 fetches anything:
 
 1. **URL-shape validation** —
@@ -101,6 +106,21 @@ Additional defenses in `safeFetch`:
 - Hard cap on response size (default 10 MB).
 - Per-hop request timeout (default 15 s).
 - Maximum 5 redirects before aborting.
+
+4. **Render-stage guard** —
+   [`safeBrowsing`](apps/worker/src/lib/safeBrowsing.ts) applies the same two
+   gates to the headless browser. Playwright does its own DNS resolution and
+   follows redirects automatically, so the `safeFetch` gates do **not** cover
+   it. Before navigation, `assertNavigableUrl` runs URL-shape validation +
+   DNS classification. During navigation, `installSsrfGuard` registers a
+   `context.route('**/*')` handler that re-validates **every** request the
+   browser makes — the main document, each redirect hop, and every
+   JavaScript-driven sub-resource (`fetch`/`XHR`/`<img>`/…) — and aborts any
+   request whose URL or resolved address falls in a blocked range. A blocked
+   navigation becomes a `PermanentJobError` with a generic message; the
+   resolved internal address is logged server-side only, never returned to
+   the user (so the error path is not an internal-network oracle). Covered by
+   [`safeBrowsing.test.ts`](apps/worker/src/lib/safeBrowsing.test.ts).
 
 **Known TOCTOU limitation:** between `dns.lookup` and the subsequent
 `fetch`, Node will resolve DNS again. A motivated attacker who controls a
@@ -180,6 +200,23 @@ Health checks (`GET /health`) are exempt from rate-limiting.
   90 s) so a hostile target cannot hang a worker indefinitely.
 - Permanent (non-retryable) failures surface as `PermanentJobError` so
   bad-URL jobs don't burn the BullMQ retry budget.
+
+### Deployment hardening (required for the worker)
+
+The app-layer SSRF gates above are the primary control, but the worker
+host **must** also block outbound traffic to internal ranges as
+defense-in-depth — this is what backstops the residual DNS-TOCTOU window
+and any future code path that forgets a gate. On the platform that runs
+`apps/worker` (Railway / Fly.io / container host), deny egress to:
+
+- `169.254.0.0/16` (incl. the cloud metadata IP `169.254.169.254`)
+- `127.0.0.0/8`, `::1`
+- `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`
+- IPv6 ULA `fc00::/7` and link-local `fe80::/10`
+
+R2 screenshot storage: the bucket must **not** be publicly listable, and
+object keys are unguessable (`screenshots/<jobId>.png`). Prefer serving
+screenshots via signed URLs rather than a world-readable bucket.
 
 ### Dependencies
 
