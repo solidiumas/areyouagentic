@@ -1,10 +1,12 @@
 import {
   analyzeRequestSchema,
+  maskSensitiveUrl,
   validateAnalyzableUrl,
   type UrlValidationReason,
 } from '@areyouagentic/shared';
 import { JobStatus, prisma } from '@areyouagentic/db';
 import type { FastifyInstance } from 'fastify';
+import { createDeleteToken } from '../lib/deleteToken.js';
 import { normalizeUrl } from '../lib/normalizeUrl.js';
 import { enqueueAnalysis } from '../lib/queue.js';
 import { ANALYZE_PER_DAY, ANALYZE_PER_MINUTE } from '../lib/rateLimiter.js';
@@ -32,6 +34,8 @@ const REASON_MESSAGES: Record<UrlValidationReason, string> = {
 type AnalyzeResponseBody = {
   jobId: string;
   cached?: true;
+  /** One-time delete token — only on a freshly created job, never on dedupe. */
+  deleteToken?: string;
 };
 
 export async function analyzeRoutes(app: FastifyInstance): Promise<void> {
@@ -118,8 +122,19 @@ export async function analyzeRoutes(app: FastifyInstance): Promise<void> {
       }
 
       // 3) Fresh job — insert PENDING row, enqueue, return jobId.
+      // Persist a masked copy of the URL (secrets in query params redacted):
+      // the row is retained for 90 days and the report derived from it is
+      // public. The *real* URL goes only on the ephemeral queue payload, which
+      // is what the worker actually fetches. `normalizedUrl` (the dedup key)
+      // keeps real values so distinct tokens never collapse to one report.
+      const { token: deleteToken, hash: deleteTokenHash } = createDeleteToken();
       const job = await prisma.analysisJob.create({
-        data: { url, normalizedUrl, status: JobStatus.PENDING },
+        data: {
+          url: maskSensitiveUrl(url),
+          normalizedUrl,
+          status: JobStatus.PENDING,
+          deleteTokenHash,
+        },
         select: { id: true },
       });
 
@@ -141,7 +156,7 @@ export async function analyzeRoutes(app: FastifyInstance): Promise<void> {
       }
 
       req.log.info({ jobId: job.id, normalizedUrl }, 'Created analysis job');
-      return reply.code(202).send({ jobId: job.id } satisfies AnalyzeResponseBody);
+      return reply.code(202).send({ jobId: job.id, deleteToken } satisfies AnalyzeResponseBody);
     },
   );
 }

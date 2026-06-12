@@ -10,7 +10,8 @@ export const siteConfig = {
   /** Release stage. Drives the beta badge in the header. */
   stage: 'beta' as 'beta' | 'stable',
   links: {
-    github: 'https://github.com/areyouagentic',
+    github: 'https://github.com/solidiumas/areyouagentic',
+    security: 'https://github.com/solidiumas/areyouagentic/blob/main/SECURITY.md',
     feedback: 'mailto:hello@areyouagentic.com?subject=areyouagentic.com%20beta%20feedback',
   },
 } as const;

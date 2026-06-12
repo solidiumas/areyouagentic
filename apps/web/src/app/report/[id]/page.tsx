@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { DeleteReportButton } from '@/components/delete-report-button';
 import { ApiClientError, getReport } from '@/lib/api';
 import {
   DIMENSIONS,
@@ -224,6 +225,8 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
           <Link href="/">Analyze another site</Link>
         </Button>
       </div>
+
+      <DeleteReportButton reportId={id} />
     </div>
   );
 }
