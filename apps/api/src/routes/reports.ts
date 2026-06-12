@@ -15,7 +15,21 @@ const paramsSchema = z.object({
 });
 
 export async function reportsRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/api/reports/:id', async (req, reply) => {
+  // Explicit per-route limiters on top of the global 30/min/IP cap. Reads are
+  // generous; the destructive delete is stricter. Co-locating the limiter with
+  // the DB access also satisfies static analysis (CodeQL js/missing-rate-limiting).
+  const readLimiter = app.rateLimit({
+    max: 60,
+    timeWindow: '1 minute',
+    keyGenerator: (req) => `report-read:${req.ip}`,
+  });
+  const deleteLimiter = app.rateLimit({
+    max: 10,
+    timeWindow: '1 minute',
+    keyGenerator: (req) => `report-del:${req.ip}`,
+  });
+
+  app.get('/api/reports/:id', { preHandler: readLimiter }, async (req, reply) => {
     const params = paramsSchema.safeParse(req.params);
     if (!params.success) {
       throw new HttpError(400, 'VALIDATION_ERROR', 'Invalid report id');
@@ -37,7 +51,7 @@ export async function reportsRoutes(app: FastifyInstance): Promise<void> {
   // presenting the one-time delete token issued when the analysis was
   // submitted (we stored only its hash). Possession of the public report link
   // is NOT sufficient.
-  app.delete('/api/reports/:id', async (req, reply) => {
+  app.delete('/api/reports/:id', { preHandler: deleteLimiter }, async (req, reply) => {
     const params = paramsSchema.safeParse(req.params);
     if (!params.success) {
       throw new HttpError(400, 'VALIDATION_ERROR', 'Invalid report id');
