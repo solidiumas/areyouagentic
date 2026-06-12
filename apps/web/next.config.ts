@@ -18,14 +18,26 @@ const isProd = process.env.NODE_ENV === 'production';
  */
 function buildCsp(): string {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  const connectSrc = ["'self'", apiUrl].filter(Boolean).join(' ');
+
+  // Cloudflare Turnstile (opt-in): only widen the policy to allow its script +
+  // iframe when a site key is configured. Default deploys keep the tighter CSP.
+  const turnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+  const cf = 'https://challenges.cloudflare.com';
+
+  const scriptSrc = ["'self'", "'unsafe-inline'", turnstileEnabled ? cf : null]
+    .filter(Boolean)
+    .join(' ');
+  const connectSrc = ["'self'", apiUrl, turnstileEnabled ? cf : null].filter(Boolean).join(' ');
+  const frameSrc = ["'self'", turnstileEnabled ? cf : null].filter(Boolean).join(' ');
+
   return [
     "default-src 'self'",
     "base-uri 'self'",
     "form-action 'self'",
     "frame-ancestors 'none'",
+    `frame-src ${frameSrc}`,
     "object-src 'none'",
-    "script-src 'self' 'unsafe-inline'",
+    `script-src ${scriptSrc}`,
     "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src 'self' fonts.gstatic.com data:",
     "img-src 'self' data: blob:",

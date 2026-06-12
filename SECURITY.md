@@ -244,10 +244,12 @@ screenshots via signed URLs rather than a world-readable bucket.
 These are weaknesses we have _not_ mitigated, listed openly so reporters
 don't waste time and operators know what to watch for.
 
-- **No bot/CAPTCHA gate on `POST /api/analyze`.** Rate limiting is per-IP,
-  which a determined attacker can rotate around. If we see organized abuse
-  in production we will add CloudFlare Turnstile (or similar) to the
-  analyze submission flow. The hooks for that aren't in the code yet.
+- **Bot/CAPTCHA gate is opt-in.** Rate limiting is per-IP, which a
+  determined attacker can rotate around. A Cloudflare Turnstile gate on
+  `POST /api/analyze` is wired in (`apps/api/src/lib/turnstile.ts` +
+  the `TurnstileWidget`) but **off by default** — it activates only when
+  `TURNSTILE_SECRET_KEY` / `NEXT_PUBLIC_TURNSTILE_SITE_KEY` are set. Enable
+  it in production if organized abuse appears. When enabled it fails closed.
 - **No read-only DB role.** All services connect with the same Postgres
   user. Splitting into a writer (API + worker) and a reader (the
   `GET /api/reports/:id` handler could use a separate role) is a sensible

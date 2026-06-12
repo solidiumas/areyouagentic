@@ -13,6 +13,7 @@ import { rememberDeleteTokenForJob } from '@/lib/delete-token';
 import { urlSchema } from '@areyouagentic/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TurnstileWidget, TURNSTILE_SITE_KEY } from '@/components/turnstile-widget';
 
 const formSchema = z.object({
   url: urlSchema,
@@ -44,6 +45,8 @@ function errorMessage(err: unknown): string {
 export function UrlForm() {
   const router = useRouter();
   const [serverError, setServerError] = React.useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = React.useState<string | null>(null);
+  const handleToken = React.useCallback((token: string | null) => setTurnstileToken(token), []);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   const {
@@ -61,8 +64,15 @@ export function UrlForm() {
 
   const onSubmit = handleSubmit(async (values) => {
     setServerError(null);
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setServerError('Please complete the verification challenge below.');
+      return;
+    }
     try {
-      const { jobId, deleteToken } = await postAnalyze({ url: values.url });
+      const { jobId, deleteToken } = await postAnalyze(
+        { url: values.url },
+        { turnstileToken: turnstileToken ?? undefined },
+      );
       if (deleteToken) rememberDeleteTokenForJob(jobId, deleteToken);
       router.push(`/analyzing/${encodeURIComponent(jobId)}`);
     } catch (err) {
@@ -133,6 +143,8 @@ export function UrlForm() {
           </p>
         ) : null}
       </div>
+
+      <TurnstileWidget onToken={handleToken} />
 
       <ul className="mt-4 flex flex-wrap gap-2" aria-label="Example URLs">
         {EXAMPLES.map((ex) => (
