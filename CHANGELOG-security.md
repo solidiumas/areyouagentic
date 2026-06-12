@@ -3,6 +3,30 @@
 Dated log of security-relevant changes. Newest first. See
 [SECURITY.md](SECURITY.md) for the threat model and overall posture.
 
+## 2026-06-12 — P2: hardening (CORS, JSON-LD, prompt-injection, captcha)
+
+### Added
+
+- **Optional Cloudflare Turnstile gate** on `POST /api/analyze`. Off by
+  default; enabled by setting `TURNSTILE_SECRET_KEY` (API, server-side
+  siteverify, fails closed) + `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (web widget).
+  The CSP is widened to allow Cloudflare only when the site key is set.
+  `siteverify` covered by 5 unit tests.
+- **`serializeJsonLd`** (in `@areyouagentic/shared`) escapes `<`/`>`/`&` and
+  the U+2028/U+2029 separators so inline JSON-LD blocks can't break out of
+  their `<script>` element. Used in `layout.tsx` / `page.tsx`. 4 unit tests.
+
+### Changed
+
+- **Prompt-injection hardening.** The analyzer payload sent to the LLM
+  (which includes website-controlled `pageTitle` / `finalUrl` / finding
+  titles) is now wrapped in explicit untrusted-data markers via
+  `buildAnalysisUserMessage`, and the system prompt instructs the model to
+  treat that block as data, never as instructions, with the deterministic
+  scores authoritative. `SYSTEM_PROMPT_VERSION` bumped. 5 unit tests.
+- **CORS `credentials: false`.** The API is cookie-free (ownership uses a
+  bearer-style delete token), so cross-origin credentials are never needed.
+
 ## 2026-06-11 — P1: report exposure & privacy
 
 ### Added

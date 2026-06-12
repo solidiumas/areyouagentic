@@ -5,12 +5,30 @@ import {
   type UrlValidationReason,
 } from '@areyouagentic/shared';
 import { JobStatus, prisma } from '@areyouagentic/db';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createDeleteToken } from '../lib/deleteToken.js';
 import { normalizeUrl } from '../lib/normalizeUrl.js';
 import { enqueueAnalysis } from '../lib/queue.js';
 import { ANALYZE_PER_DAY, ANALYZE_PER_MINUTE } from '../lib/rateLimiter.js';
+import { turnstileEnabled, verifyTurnstileToken } from '../lib/turnstile.js';
 import { HttpError } from '../plugins/errorHandler.js';
+
+/**
+ * Bot gate. No-op unless TURNSTILE_SECRET_KEY is configured; when it is, a
+ * valid `cf-turnstile-response` token is required. Runs after the rate limiter
+ * so a flood is rejected cheaply before we ever call Cloudflare.
+ */
+async function turnstileGuard(req: FastifyRequest, _reply: FastifyReply): Promise<void> {
+  if (!turnstileEnabled()) return;
+  const header = req.headers['cf-turnstile-response'];
+  const token = Array.isArray(header) ? header[0] : header;
+  if (!token) {
+    throw new HttpError(400, 'TURNSTILE_REQUIRED', 'Captcha verification is required');
+  }
+  if (!(await verifyTurnstileToken(token, req.ip))) {
+    throw new HttpError(403, 'TURNSTILE_FAILED', 'Captcha verification failed');
+  }
+}
 
 /** Window during which an in-flight job dedupes a fresh request. */
 const IN_FLIGHT_WINDOW_MS = 60 * 1000;
@@ -59,7 +77,7 @@ export async function analyzeRoutes(app: FastifyInstance): Promise<void> {
       },
       // Reaffirm the 10kb body cap; we only ever accept a JSON URL.
       bodyLimit: 10 * 1024,
-      preHandler: dailyLimiter,
+      preHandler: [dailyLimiter, turnstileGuard],
     },
     async (req, reply) => {
       const parseResult = analyzeRequestSchema.safeParse(req.body);

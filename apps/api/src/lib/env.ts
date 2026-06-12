@@ -21,6 +21,11 @@ const envSchema = z.object({
   // /api/metrics is gated by basic auth. Disabled entirely if either is unset.
   METRICS_USERNAME: z.string().min(1).optional(),
   METRICS_PASSWORD: z.string().min(1).optional(),
+
+  // Cloudflare Turnstile. When set, POST /api/analyze requires a valid
+  // `cf-turnstile-response` token. Unset (the default) disables the check so
+  // local dev, CI, and curl keep working without a captcha.
+  TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

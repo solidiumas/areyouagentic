@@ -5,6 +5,7 @@ export * from './recommendations.js';
 export * from './evidence.js';
 export * from './constants.js';
 export * from './types.js';
+export * from './json-ld.js';
 export * from './url-mask.js';
 export * from './schemas/url.js';
 export * from './schemas/analysis.js';

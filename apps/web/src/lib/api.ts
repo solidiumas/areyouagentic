@@ -132,14 +132,19 @@ function parseError(json: unknown): ApiError {
 
 export async function postAnalyze(
   body: AnalyzeRequest,
-  options?: RequestOptions,
+  opts: RequestOptions & { turnstileToken?: string } = {},
 ): Promise<AnalyzeResponse> {
+  const { turnstileToken, ...requestOpts } = opts;
   const validated = analyzeRequestSchema.parse(body);
   return request(
     '/api/analyze',
-    { method: 'POST', body: JSON.stringify(validated) },
+    {
+      method: 'POST',
+      body: JSON.stringify(validated),
+      headers: turnstileToken ? { 'cf-turnstile-response': turnstileToken } : undefined,
+    },
     analyzeResponseSchema,
-    options,
+    requestOpts,
   );
 }
 
