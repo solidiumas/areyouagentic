@@ -17,6 +17,18 @@ export type AnalysisJobPayload = {
 };
 
 /**
+ * Payload for a `cleanup-screenshots` job (job name distinguishes it from
+ * `analyze` on the shared queue). Enqueued by the API when a user deletes a
+ * report — the API holds no R2 credentials, so object deletion happens here.
+ */
+export type CleanupScreenshotsPayload = {
+  screenshotKeys: string[];
+  requestId?: string;
+};
+
+export type QueueJobPayload = AnalysisJobPayload | CleanupScreenshotsPayload;
+
+/**
  * Creates an ioredis connection configured for BullMQ. BullMQ requires
  * `maxRetriesPerRequest: null` so blocking commands (BRPOPLPUSH) stay alive.
  */

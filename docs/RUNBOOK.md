@@ -53,17 +53,37 @@ Same workflow, `environment = staging`. Pushes the same tags plus
 `staging-latest`. Point a separate Railway/Vercel project at the staging
 tag.
 
-### First-time database migration on a new environment
+### Database migrations
+
+Migrations live in `packages/db/prisma/migrations/` and are applied by the
+**Migrate** GitHub workflow (`.github/workflows/migrate.yml`), which runs
+`prisma migrate deploy` against the production database whenever a new
+migration lands on `main` (and on manual dispatch). It authenticates via the
+repo secret `PROD_DATABASE_URL` (Railway → Postgres → `DATABASE_PUBLIC_URL`).
+
+The runtime images do **not** contain the Prisma CLI — don't try to run
+migrations from inside a deployed container.
+
+Because the Migrate workflow and the Railway image rebuild run in parallel,
+migrations must be backward compatible with the currently deployed code
+(expand/contract: add columns/tables first, ship code that uses them, drop
+old columns in a later migration).
+
+**One-time baseline (beta):** the beta database was originally provisioned
+with `prisma db push`, so before the first `migrate deploy` the init
+migration must be marked as already applied:
 
 ```bash
-# Connect to the deployed API container and run the migrations once.
-railway run --service api  pnpm --filter @areyouagentic/db prisma migrate deploy
-# Or on Fly.io:
-fly ssh console -a areyouagentic-api -C "pnpm --filter @areyouagentic/db prisma migrate deploy"
+DATABASE_URL=<DATABASE_PUBLIC_URL> \
+  pnpm --filter @areyouagentic/db exec prisma migrate resolve --applied 0_init
 ```
 
-Migrations are idempotent. Run again after every deploy that includes a
-`packages/db/prisma/migrations/*` change.
+Manual fallback if the workflow is unavailable:
+
+```bash
+DATABASE_URL=<DATABASE_PUBLIC_URL> \
+  pnpm --filter @areyouagentic/db exec prisma migrate deploy
+```
 
 ---
 

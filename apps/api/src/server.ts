@@ -21,7 +21,11 @@ export async function buildServer(): Promise<FastifyInstance> {
     logger: loggerOptions,
     // 10kb default body limit (overridable per-route). We only ever take URLs.
     bodyLimit: 10 * 1024,
-    trustProxy: true,
+    // Trust exactly ONE proxy hop (Railway's edge). `true` would trust the
+    // whole x-forwarded-for chain, letting any client spoof its IP with a
+    // forged header and rotate past every per-IP rate limit. With `1`, the
+    // rightmost XFF entry — appended by Railway itself — wins.
+    trustProxy: 1,
     disableRequestLogging: false,
     // Use the inbound x-request-id when present, otherwise mint a UUIDv4 so
     // every log line and response carries a correlation id.

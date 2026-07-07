@@ -51,6 +51,24 @@ export async function runAnalysis(job: Job<AnalysisJobPayload>): Promise<void> {
   // worker entries can be joined with API entries for the same flow.
   const log = logger.child({ jobId, url, bullJobId: job.id, requestId });
 
+  // Terminal-status guard. BullMQ delivers at-least-once: a job that crashed
+  // (or stalled) after completing its work can be redelivered. Re-running the
+  // pipeline would burn a full render + LLM call and, worse, could flip a
+  // genuinely COMPLETED job to FAILED. A missing row means the user deleted
+  // their report mid-flight — nothing left to do either way.
+  const existing = await prisma.analysisJob.findUnique({
+    where: { id: jobId },
+    select: { status: true },
+  });
+  if (!existing) {
+    log.warn('job row no longer exists — skipping (deleted while queued?)');
+    return;
+  }
+  if (existing.status === JobStatus.COMPLETED) {
+    log.info('job already COMPLETED — skipping redelivered run');
+    return;
+  }
+
   await prisma.analysisJob.update({
     where: { id: jobId },
     data: { status: JobStatus.RUNNING, startedAt: new Date() },
@@ -90,14 +108,20 @@ export async function runAnalysis(job: Job<AnalysisJobPayload>): Promise<void> {
     const permanent = err instanceof PermanentJobError;
     log.error({ err, permanent }, 'analysis failed');
 
-    await prisma.analysisJob.update({
-      where: { id: jobId },
-      data: {
-        status: JobStatus.FAILED,
-        errorMessage: message.slice(0, 1000),
-        completedAt: new Date(),
-      },
-    });
+    // Best-effort: the row may have been deleted mid-run (user delete). Don't
+    // let that mask the original pipeline error.
+    await prisma.analysisJob
+      .update({
+        where: { id: jobId },
+        data: {
+          status: JobStatus.FAILED,
+          errorMessage: message.slice(0, 1000),
+          completedAt: new Date(),
+        },
+      })
+      .catch((updateErr: unknown) => {
+        log.warn({ err: updateErr }, 'could not mark job FAILED (row deleted mid-run?)');
+      });
 
     // Re-throw so BullMQ records the failure. Permanent errors bypass retries
     // via the worker's failure handler (see worker.ts).

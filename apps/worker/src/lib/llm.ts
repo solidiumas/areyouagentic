@@ -14,7 +14,14 @@ let clientCache: Anthropic | null = null;
 
 function client(): Anthropic {
   if (clientCache) return clientCache;
-  clientCache = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  clientCache = new Anthropic({
+    apiKey: env.ANTHROPIC_API_KEY,
+    // The SDK default (~10 min, 2 retries) outlives the 90s job timeout and
+    // would hold a worker slot hostage on a hung connection. A 400-token
+    // Haiku call finishes in single-digit seconds; 20s is already generous.
+    timeout: 20_000,
+    maxRetries: 1,
+  });
   return clientCache;
 }
 

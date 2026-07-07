@@ -81,8 +81,13 @@ Set in the platform's variable manager (Railway per-service, Vercel project).
 - [x] **Postgres (Railway):** managed instance provisioned; schema applied
       with `prisma db push` against `DATABASE_PUBLIC_URL`.
   - [ ] Confirm Railway backups/retention policy for the DB plan in use.
-  - [ ] Move from `db push` to `prisma migrate deploy` before wide launch so
-        schema changes are versioned.
+  - [x] Move from `db push` to `prisma migrate deploy`: the init migration
+        (`packages/db/prisma/migrations/0_init/`) is committed and the
+        **Migrate** workflow (`.github/workflows/migrate.yml`) applies new
+        migrations on push to `main`. Two one-time setup steps remain: - [ ] Add repo secret `PROD_DATABASE_URL` (Railway → Postgres →
+        `DATABASE_PUBLIC_URL`) in GitHub → Settings → Secrets → Actions. - [ ] Baseline the existing beta DB (it predates the migration
+        history): `DATABASE_URL=<DATABASE_PUBLIC_URL> pnpm --filter
+@areyouagentic/db exec prisma migrate resolve --applied 0_init`
 - [x] **Redis (Railway):** managed instance provisioned; reachable from api
       and worker (`/health` reports `redis: ok`).
 - [ ] **R2 (Cloudflare):** deferred for beta (no screenshots in reports yet).
@@ -156,7 +161,9 @@ Set in the platform's variable manager (Railway per-service, Vercel project).
 ## Top follow-ups before a wider (non-beta) launch
 
 1. **Sentry** — error tracking is the biggest gap; wire server + client DSNs.
-2. **Versioned migrations** — switch `db push` → `migrate deploy`.
+2. **Versioned migrations** — done in code (init migration + Migrate
+   workflow); remaining: add the `PROD_DATABASE_URL` secret and run the
+   one-time `migrate resolve --applied 0_init` baseline (see §3).
 3. **Custom domain + DNS** — `areyouagentic.com`, then update `APP_URL` +
    `NEXT_PUBLIC_API_URL`.
 4. **R2** — re-enable screenshots in reports if they add user value.

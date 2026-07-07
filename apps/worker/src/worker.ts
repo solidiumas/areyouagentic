@@ -5,14 +5,17 @@ import { logger } from './lib/logger.js';
 import {
   ANALYSIS_QUEUE_NAME,
   type AnalysisJobPayload,
+  type CleanupScreenshotsPayload,
+  type QueueJobPayload,
   createRedisConnection,
 } from './lib/queue.js';
+import { deleteScreenshots } from './lib/r2.js';
 import { captureException } from './lib/sentry.js';
 import { runAnalysis } from './pipeline/runAnalysis.js';
 import { PermanentJobError } from './pipeline/context.js';
 
 export type AnalysisWorker = {
-  worker: Worker<AnalysisJobPayload>;
+  worker: Worker<QueueJobPayload>;
   connection: Redis;
 };
 
@@ -38,15 +41,27 @@ const DEFAULT_WORKER_OPTIONS: Pick<
 export function createAnalysisWorker(): AnalysisWorker {
   const connection = createRedisConnection();
 
-  const worker = new Worker<AnalysisJobPayload>(
+  const worker = new Worker<QueueJobPayload>(
     ANALYSIS_QUEUE_NAME,
-    async (job: Job<AnalysisJobPayload>) => {
+    async (job: Job<QueueJobPayload>) => {
+      // Cheap maintenance jobs (R2 object deletion after a user deletes a
+      // report) share the queue with analyses — dispatch on job name.
+      if (job.name === 'cleanup-screenshots') {
+        const { screenshotKeys, requestId } = job.data as CleanupScreenshotsPayload;
+        await deleteScreenshots(screenshotKeys);
+        logger.info(
+          { deleted: screenshotKeys.length, requestId },
+          'cleanup-screenshots: deleted R2 objects',
+        );
+        return;
+      }
+
       let timer: NodeJS.Timeout | undefined;
       try {
         // Hard timeout: race the pipeline against a deadline. BullMQ doesn't
         // enforce per-job wall-clock limits itself, so we do it here.
         await Promise.race([
-          runAnalysis(job),
+          runAnalysis(job as Job<AnalysisJobPayload>),
           new Promise<never>((_, reject) => {
             timer = setTimeout(
               () => reject(new Error(`Job timed out after ${env.JOB_TIMEOUT_MS}ms`)),
