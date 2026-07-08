@@ -106,9 +106,16 @@ export function registerErrorHandler(app: FastifyInstance): void {
     }
 
     req.log.warn({ err, statusCode: status }, err.message);
-    return reply
-      .code(status)
-      .send(buildPayload(err.code || 'BAD_REQUEST', err.message || 'Bad request'));
+    // Fastify's own errors carry internal codes like FST_ERR_CTP_INVALID_
+    // MEDIA_TYPE. Those are framework implementation detail, not part of our
+    // stable error-code contract — map anything non-HttpError to a fixed set.
+    const code =
+      err.code && !err.code.startsWith('FST_ERR_')
+        ? err.code
+        : status === 429
+          ? 'RATE_LIMITED'
+          : 'BAD_REQUEST';
+    return reply.code(status).send(buildPayload(code, err.message || 'Bad request'));
   });
 
   app.setNotFoundHandler((req: FastifyRequest, reply: FastifyReply) => {

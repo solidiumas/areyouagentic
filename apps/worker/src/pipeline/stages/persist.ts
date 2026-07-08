@@ -3,7 +3,10 @@ import { Prisma, prisma } from '@areyouagentic/db';
 import type { PrismaTypes } from '@areyouagentic/db';
 import type { AnalyzerResult } from '@areyouagentic/analyzers';
 import {
+  evidenceSchema,
+  findingsSchema,
   maskSensitiveUrl,
+  recommendationsSchema,
   type Dimension,
   type EvidenceItem,
   type Finding,
@@ -100,6 +103,14 @@ export const persistStage: Stage = async (ctx: AnalysisContext) => {
     });
   }
 
+  // Validate-on-write, per the schema contract (schema.prisma header): the
+  // read path (`parseReport`) Zod-parses these columns on every fetch, so a
+  // malformed analyzer payload written here would surface as a 500 for every
+  // reader of the report. Fail the job at the source instead.
+  const validatedFindings = findingsSchema.parse(flatFindings);
+  const validatedRecommendations = recommendationsSchema.parse(recommendations);
+  const validatedEvidence = evidenceSchema.parse(evidence);
+
   const reportData = {
     overallScore: ctx.scores.overall,
     grade: ctx.scores.grade,
@@ -109,9 +120,9 @@ export const persistStage: Stage = async (ctx: AnalysisContext) => {
     actionabilityScore: ctx.scores.actionability,
     performanceScore: ctx.scores.performance,
     contentClarityScore: ctx.scores.contentClarity,
-    findings: flatFindings as unknown as PrismaTypes.InputJsonValue,
-    recommendations: recommendations as unknown as PrismaTypes.InputJsonValue,
-    evidence: evidence as unknown as PrismaTypes.InputJsonValue,
+    findings: validatedFindings as unknown as PrismaTypes.InputJsonValue,
+    recommendations: validatedRecommendations as unknown as PrismaTypes.InputJsonValue,
+    evidence: validatedEvidence as unknown as PrismaTypes.InputJsonValue,
     pageTitle: ctx.pageTitle ?? null,
     // Report is public — redact secret-bearing query params before storing.
     finalUrl: maskSensitiveUrl(ctx.finalUrl ?? ctx.url),

@@ -92,6 +92,23 @@ jobs:
           pnpm --filter @areyouagentic/db exec prisma db push --skip-generate
           DATABASE_URL="${TEST_DATABASE_URL}" pnpm --filter @areyouagentic/db exec prisma db push --skip-generate
 
+      # Guards the migration history: applies the committed migrations to a
+      # scratch database and diffs the result against schema.prisma. Fails
+      # when someone edits the schema without generating a migration — which
+      # would otherwise ship as silent drift, since production only ever runs
+      # `migrate deploy` (see .github/workflows/migrate.yml).
+      - name: Check committed migrations match schema
+        env:
+          MIGRATE_CHECK_URL: postgresql://areyouagentic:areyouagentic@localhost:5432/migrate_check
+        run: |
+          PGPASSWORD=areyouagentic psql -h localhost -U areyouagentic -d areyouagentic \
+            -c 'DROP DATABASE IF EXISTS migrate_check;' -c 'CREATE DATABASE migrate_check;'
+          DATABASE_URL="${MIGRATE_CHECK_URL}" pnpm --filter @areyouagentic/db exec prisma migrate deploy
+          pnpm --filter @areyouagentic/db exec prisma migrate diff \
+            --from-url "${MIGRATE_CHECK_URL}" \
+            --to-schema-datamodel prisma/schema.prisma \
+            --exit-code
+
       - name: Format check
         run: pnpm format:check
 
@@ -109,6 +126,44 @@ jobs:
 
       - name: Test
         run: pnpm test
+
+  # Web E2E (Playwright). The specs stub the API with page.route, so this
+  # needs no Postgres/Redis — just the built workspace libs and a dev server
+  # (playwright.config.ts starts one on :3100).
+  e2e-web:
+    name: Web E2E (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The web app imports workspace libs as built JS (dist/), so its
+      # dependencies must be built even though `next dev` compiles the app
+      # itself on demand. shared is web's only workspace dependency.
+      - name: Build workspace dependencies
+        run: pnpm exec turbo run build --filter=@areyouagentic/shared
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @areyouagentic/web test:e2e:install
+
+      - name: Run E2E tests
+        run: pnpm --filter @areyouagentic/web test:e2e
 
   # Build the three runtime images. We don't push from CI on PRs —
   # deploy.yml handles registry pushes on manual dispatch. This job only

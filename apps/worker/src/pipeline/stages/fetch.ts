@@ -10,14 +10,14 @@ function isPermanent(reason: string, status?: number): boolean {
   return false;
 }
 
-async function probe(url: string): Promise<string | null> {
-  const result = await safeFetch(url, { timeoutMs: TIMEOUTS.probe });
+async function probe(url: string, signal?: AbortSignal): Promise<string | null> {
+  const result = await safeFetch(url, { timeoutMs: TIMEOUTS.probe, signal });
   if (!result.ok) return null;
   return result.body.toString('utf8');
 }
 
 export const fetchStage: Stage = async (ctx: AnalysisContext) => {
-  const mainResult = await safeFetch(ctx.url, { timeoutMs: TIMEOUTS.fetch });
+  const mainResult = await safeFetch(ctx.url, { timeoutMs: TIMEOUTS.fetch, signal: ctx.signal });
 
   if (!mainResult.ok) {
     const { reason, message, status } = mainResult;
@@ -40,9 +40,9 @@ export const fetchStage: Stage = async (ctx: AnalysisContext) => {
   const origin = new URL(finalUrl).origin;
 
   const [robotsTxt, llmsTxt, sitemapXml] = await Promise.all([
-    probe(`${origin}/robots.txt`),
-    probe(`${origin}/llms.txt`),
-    probe(`${origin}/sitemap.xml`),
+    probe(`${origin}/robots.txt`, ctx.signal),
+    probe(`${origin}/llms.txt`, ctx.signal),
+    probe(`${origin}/sitemap.xml`, ctx.signal),
   ]);
 
   ctx.log.info(

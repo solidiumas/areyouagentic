@@ -1,7 +1,7 @@
 import { JobStatus, prisma } from '@areyouagentic/db';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { normalizeUrl } from '../lib/normalizeUrl.js';
+import { urlDedupKey } from '../lib/normalizeUrl.js';
 import {
   buildTestServer,
   closeTestServer,
@@ -46,7 +46,7 @@ describe('POST /api/analyze', () => {
     const job = await prisma.analysisJob.findUnique({ where: { id: body.jobId } });
     expect(job).not.toBeNull();
     expect(job?.status).toBe(JobStatus.PENDING);
-    expect(job?.normalizedUrl).toBe(normalizeUrl(SAMPLE_URL));
+    expect(job?.normalizedUrl).toBe(urlDedupKey(SAMPLE_URL));
   });
 
   // ── Idempotency ──────────────────────────────────────────────────
@@ -76,11 +76,73 @@ describe('POST /api/analyze', () => {
     expect(count).toBe(1);
   });
 
+  it('dedupes against a RUNNING job older than a minute (slow analysis)', async () => {
+    // Regression: the old 60s in-flight window stopped deduping as soon as an
+    // analysis ran longer than a minute, spawning duplicate jobs for slow URLs.
+    const running = await prisma.analysisJob.create({
+      data: {
+        url: SAMPLE_URL,
+        normalizedUrl: urlDedupKey(SAMPLE_URL),
+        status: JobStatus.RUNNING,
+        createdAt: new Date(Date.now() - 3 * 60 * 1000),
+        startedAt: new Date(Date.now() - 2 * 60 * 1000),
+      },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/analyze',
+      headers: uniqueIpHeader(),
+      payload: { url: SAMPLE_URL },
+    });
+
+    expect(res.statusCode).toBe(202);
+    expect(res.json().jobId).toBe(running.id);
+    expect(await prisma.analysisJob.count()).toBe(1);
+  });
+
+  it('does NOT dedupe against an orphaned PENDING job past the active-age cap', async () => {
+    await prisma.analysisJob.create({
+      data: {
+        url: SAMPLE_URL,
+        normalizedUrl: urlDedupKey(SAMPLE_URL),
+        status: JobStatus.PENDING,
+        createdAt: new Date(Date.now() - 16 * 60 * 1000),
+      },
+    });
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/analyze',
+      headers: uniqueIpHeader(),
+      payload: { url: SAMPLE_URL },
+    });
+
+    expect(res.statusCode).toBe(202);
+    expect(await prisma.analysisJob.count()).toBe(2);
+  });
+
+  it('stores only the hashed dedup key, never the plaintext normalized URL', async () => {
+    const secretUrl = 'https://example.com/reset?token=super-secret-value';
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/analyze',
+      headers: uniqueIpHeader(),
+      payload: { url: secretUrl },
+    });
+
+    expect(res.statusCode).toBe(202);
+    const job = await prisma.analysisJob.findUnique({ where: { id: res.json().jobId } });
+    expect(job?.normalizedUrl).toMatch(/^[0-9a-f]{64}$/);
+    expect(job?.normalizedUrl).not.toContain('super-secret-value');
+    expect(job?.url).not.toContain('super-secret-value');
+  });
+
   it('returns the cached completed jobId with cached:true within 24h', async () => {
     const completed = await prisma.analysisJob.create({
       data: {
         url: SAMPLE_URL,
-        normalizedUrl: normalizeUrl(SAMPLE_URL),
+        normalizedUrl: urlDedupKey(SAMPLE_URL),
         status: JobStatus.COMPLETED,
         startedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
         completedAt: new Date(Date.now() - 60 * 60 * 1000),

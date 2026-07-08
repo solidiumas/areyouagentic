@@ -8,15 +8,17 @@ short enough to act on at 3am.
 ## Architecture in one paragraph
 
 The user hits **web** (Next.js on Vercel) which calls the **api**
-(Fastify on Railway/Fly.io). The API inserts an `AnalysisJob` row in
-**Postgres** (Neon) and enqueues a BullMQ job in **Redis** (Upstash). One
-of the **worker** instances (Railway/Fly.io, Playwright base image) picks
-it up, scrapes the URL, runs analyzers, writes a `Report` row, and uploads
-screenshots/artifacts to **R2** (Cloudflare). The frontend polls
+(Fastify on Railway, Docker). The API inserts an `AnalysisJob` row in
+**Postgres** (Railway managed) and enqueues a BullMQ job in **Redis**
+(Railway managed). The **worker** (Railway, Docker, Playwright base image)
+picks it up, scrapes the URL, runs analyzers, and writes a `Report` row.
+Screenshot/artifact upload to **R2** (Cloudflare) is deferred for the beta
+— persist skips the upload when R2 env vars are unset. The frontend polls
 `/api/jobs/:id` until COMPLETED, then fetches the report.
 
-Logs ship as JSON to whatever pipeline the platform provides (Vercel logs,
-Railway logs, Datadog/Loki for self-host). Errors fan out to **Sentry**.
+Logs ship as JSON (pino) to the platform's pipeline (Vercel logs, Railway
+logs). Errors fan out to **Sentry** once the DSNs are wired — that's still
+pending for the beta, so until then the logs are the only error trail.
 The `/api/metrics` JSON endpoint (basic-auth) exposes job counts, duration
 percentiles, error rate, and (eventually) LLM token usage.
 
@@ -24,34 +26,54 @@ percentiles, error rate, and (eventually) LLM token usage.
 
 ## How to deploy
 
-### Production deploy (manual, from main)
+### Production deploy (push to main)
 
-1. Verify `main` is green on the [CI workflow](../.github/workflows/ci.yml).
-2. GitHub → **Actions** → **Deploy** → **Run workflow**.
-3. Choose `bump = patch | minor | major` and `environment = production`.
-4. The workflow:
-   - bumps `package.json`, tags `vX.Y.Z`, pushes both;
-   - builds and pushes three images to `ghcr.io/<repo>/{api,worker,web}` tagged
-     with `vX.Y.Z`, `production-latest`, and the commit SHA;
-   - creates a GitHub release with auto-generated notes.
-5. Platform-side rollout:
-   - **Vercel (web):** auto-deploys on tag push (configure the project to
-     watch `v*` tags).
-   - **Railway / Fly.io (api + worker):** point each service at
-     `ghcr.io/<repo>/<app>:production-latest` and trigger a redeploy. Both
+Deploys are GitHub-driven — there is no tag-based or GHCR-image deploy in
+the beta. Merging/pushing to `main` **is** the deploy.
+
+1. Verify `main` is green on the [CI workflow](../.github/workflows/ci.yml)
+   (lint, typecheck, build, test, Docker image builds for all three apps).
+2. Push to `main`:
+   - **Railway (api + worker):** rebuilds each service from its own
+     Dockerfile (`apps/api/Dockerfile`, `apps/worker/Dockerfile`). Both
      respect `SIGTERM`; their graceful-shutdown logic drains in-flight
      work (90s + 5s buffer for the worker).
-6. Watch:
-   - `/health` on the API (200 = ready).
-   - Worker `:4001/health` (200 = DB + Redis reachable).
-   - Sentry "Last hour" view for new issues.
+   - **Vercel (web):** rebuilds the project with root directory `apps/web`
+     (`vercel.json` drives install + `turbo` build).
+   - **Migrations:** the Migrate workflow runs `prisma migrate deploy` in
+     parallel with the rebuilds — see "Database migrations" below.
+3. Watch:
+   - `/health` on the API
+     (`curl https://api-production-6eca.up.railway.app/health` →
+     `{"status":"ok","checks":{"database":"ok","redis":"ok"}}`).
+   - Worker: the health server on `:4001` is Railway-internal — check the
+     service status and logs in the Railway dashboard instead, then confirm
+     it drains the queue with the smoke test in "Useful commands".
+   - Sentry "Last hour" view for new issues (once Sentry is wired).
    - `/api/metrics` for `errorRate` and `p99` regressions.
+
+**Deploy-time gotchas (don't regress these):**
+
+- **Prisma client copy:** `pnpm deploy --prod` ships an _un-generated_
+  Prisma client stub. Each backend Dockerfile copies the build-stage's
+  generated client over the stub (the `find … @prisma+client … cp -a`
+  step). Removing it brings back `@prisma/client did not initialize yet`
+  at runtime.
+- **`APP_URL` (api, CORS):** must be a full `https://…` origin (Zod
+  validates it as a URL; a bare host crashes the API on boot) and must
+  match the browser origin exactly — currently
+  `https://areyouagentic.vercel.app`.
+- **`NEXT_PUBLIC_API_URL` (Vercel):** baked into the web bundle at build
+  time. Changing it does nothing until you redeploy web.
+- Monorepo builds use `turbo run build --filter=<app>` (not
+  `pnpm --filter`) so workspace deps build in topological order.
 
 ### Staging deploy
 
-Same workflow, `environment = staging`. Pushes the same tags plus
-`staging-latest`. Point a separate Railway/Vercel project at the staging
-tag.
+There is no staging environment in the beta. Pre-merge verification is CI
+(including the Docker image builds) plus running the stack locally with
+`docker compose`. If you need a shared preview of a web change, use the
+Vercel preview deployment for the PR branch.
 
 ### Database migrations
 
@@ -91,12 +113,18 @@ DATABASE_URL=<DATABASE_PUBLIC_URL> \
 
 **Fastest path** (no rebuild):
 
-1. In Railway/Fly.io, change the image tag of each service from
-   `production-latest` (or `vX.Y.Z`) back to `vX.Y.(Z-1)` and redeploy.
+1. In Railway, open each affected service (api, worker) → **Deployments**
+   → pick the previous good deployment → **Redeploy**.
 2. In Vercel, promote the previous deployment from the **Deployments**
    tab.
-3. Confirm `/health` is green on the API and worker.
+3. Confirm the API `/health` is green and the worker is online in the
+   Railway dashboard.
 4. Check `/api/metrics` `errorRate` and `p99` are back to baseline.
+
+**Durable path:** `git revert` the bad commit and push to `main` — that
+triggers fresh Railway + Vercel builds of the reverted code. Do this after
+(or instead of) the dashboard rollback, otherwise the next unrelated push
+to `main` redeploys the bad code.
 
 **If a migration is in the bad release**, the rollback gets harder:
 
@@ -106,8 +134,10 @@ DATABASE_URL=<DATABASE_PUBLIC_URL> \
 - Mitigation: deploy migrations in two phases (additive first, removal
   later). The release that "removes" a column should be N+1 after the
   release that stopped writing to it.
-- If you're stuck: restore the most recent Neon point-in-time snapshot to
-  a new branch, swap `DATABASE_URL`, and re-run the previous app version.
+- If you're stuck: restore the most recent Railway Postgres backup (take a
+  manual snapshot before any risky migration — the plan's automatic backup
+  cadence hasn't been confirmed) and re-run the previous app version
+  against it.
 
 ---
 
@@ -123,20 +153,19 @@ Triage:
 
 1. Worker health:
 
+   The worker's health server on `:4001` is Railway-internal (no public
+   URL). Check the worker service in the Railway dashboard: is the latest
+   deployment online, and do the logs show it processing jobs? A worker
+   that can't reach DB or Redis logs it loudly — fix that first.
+
+2. Worker status:
+
    ```bash
-   curl -fsS https://worker.areyouagentic.com:4001/health
+   railway logs --service worker
    ```
 
-   If 503, the worker can't reach DB or Redis — fix that first.
-
-2. Worker count:
-
-   ```bash
-   railway status --service worker
-   # or:  fly status -a areyouagentic-worker
-   ```
-
-   Are all instances healthy? Restart any that are crash-looping.
+   Is the instance healthy? Restart it from the Railway dashboard if it's
+   crash-looping.
 
 3. Concurrency:
    - Default `WORKER_CONCURRENCY=3` per instance.
@@ -145,8 +174,8 @@ Triage:
      and you'll OOM the box.
 
 4. Scale out:
-   - Add a worker instance via the platform's "duplicate service" or
-     `fly scale count N`.
+   - Add a worker instance via Railway's replicas / duplicate-service
+     option.
    - BullMQ distributes jobs across all instances automatically — no
      config change needed.
 
@@ -181,12 +210,13 @@ Actions:
 
 1. **Confirm it's quota, not a bug.** Hit
    `https://status.anthropic.com` and the Anthropic console.
-2. **Slow the queue.** Reduce `WORKER_CONCURRENCY` to 1 on every instance
-   and redeploy. Jobs will keep flowing but stop competing for the
-   per-minute Anthropic budget.
-3. **Disable enqueue if it's worse.** Toggle the API into read-only mode
-   by setting `ANALYZE_PER_MINUTE.max=0` and redeploying — users see a
-   429 instead of jobs piling up to fail.
+2. **Slow the queue.** Set `WORKER_CONCURRENCY=1` on the worker service
+   in Railway and redeploy it. Jobs will keep flowing but stop competing
+   for the per-minute Anthropic budget.
+3. **Disable enqueue if it's worse.** Set `ANALYZE_PER_MINUTE.max = 0` in
+   `apps/api/src/lib/rateLimiter.ts` and push to `main` (it's a code
+   constant, so this ships via a normal deploy) — users see a 429 instead
+   of jobs piling up to fail.
 4. **Failover.** If quota is provider-side and won't recover in <30 min,
    page the on-call engineer to coordinate with Anthropic support; the
    Anthropic API key in `ANTHROPIC_API_KEY` is per-org.
@@ -203,17 +233,26 @@ Actions:
 
 Redis is unreachable from the API.
 
-- Check Upstash status.
-- Check `REDIS_URL` and that the API container has egress to it.
+- Check the Railway Redis service in the dashboard.
+- Check `REDIS_URL` — it should reference the Railway-managed instance
+  (`${{Redis.REDIS_URL}}`).
 - The API marks the AnalysisJob row FAILED and tells the user to retry.
 
 ### `GET /health` returns 503
 
 Look at the `checks` object in the response:
 
-- `database: fail` → Postgres unreachable. Check Neon status, connection
-  string, IP allowlist if you have one.
-- `redis: fail` → Upstash unreachable. Same drill.
+- `database: fail` → Postgres unreachable. Check the Railway Postgres
+  service and that `DATABASE_URL` is `${{Postgres.DATABASE_URL}}`.
+- `redis: fail` → Railway Redis unreachable. Same drill.
+
+### API crash-loops right after an env-var change
+
+`APP_URL` (the CORS origin) is validated as a URL at boot. A bare host
+like `areyouagentic.vercel.app` (no `https://`) crashes the API on
+startup. Set the full origin — `https://areyouagentic.vercel.app` — and
+redeploy. It must also match the browser origin exactly, or every browser
+request fails CORS.
 
 ### Worker stuck on a job (lock keeps expiring)
 
@@ -242,32 +281,39 @@ stalled and re-picks it up, looping forever.
 Playwright leaks small amounts of native memory per browser context.
 We mitigate by closing contexts after each job; if the process still
 grows over a day, the platform's auto-restart-on-memory-limit catches it.
-Set the limit to ~1.5 GiB on Fly.io / Railway and let it cycle.
+Set the limit to ~1.5 GiB on Railway and let it cycle.
 
 ### Web app blank page / Next.js crash
 
 - Check the Vercel deployment status.
-- Look at the latest Sentry browser-side issues — `@sentry/nextjs` captures
-  client errors with full source maps when `SENTRY_AUTH_TOKEN` is set in
-  CI.
+- If API calls fail from the browser, remember `NEXT_PUBLIC_API_URL` is
+  baked into the bundle at build time — a changed value only takes effect
+  after a web redeploy. Check it matches the live API URL.
+- Look at the latest Sentry browser-side issues (once Sentry is wired) —
+  `@sentry/nextjs` captures client errors with full source maps when
+  `SENTRY_AUTH_TOKEN` is set in CI. Until then, use Vercel logs.
 - Roll back via Vercel's promote-previous-deployment.
 
 ---
 
 ## Backups
 
-- **Postgres (Neon):** daily snapshots are provider-managed; Neon retains
-  7 days on the free tier, 30 on paid. Point-in-time recovery enabled.
-  Verify monthly by restoring the latest snapshot to a throwaway branch.
-- **R2 artifacts:** bucket versioning is enabled. Lifecycle rule deletes
-  non-current versions after 30 days. There's no cross-region replication
-  — the data is reproducible (re-run the analyzer) so the recovery time
-  vs. cost trade-off favors no replica.
-- **Redis (Upstash):** AOF persistence is enabled but BullMQ state is
-  ephemeral by design. We treat Redis loss as a queue reset, not a data
-  loss event.
-- **Secrets:** stored in the platform's secret manager. The team's
-  password manager has a "break glass" export for disaster recovery.
+- **Postgres (Railway managed):** the automatic backup cadence for the
+  current plan hasn't been confirmed yet — check it in the Railway
+  dashboard, and take a manual snapshot before any risky migration.
+  Rehearse a restore before relying on it.
+- **R2 artifacts:** deferred for the beta — no screenshots are uploaded,
+  so there is nothing to back up yet. When R2 is enabled: bucket
+  versioning + a 30-day lifecycle rule; the data is reproducible (re-run
+  the analyzer) so no cross-region replica.
+- **Redis (Railway managed):** BullMQ state is ephemeral by design. We
+  treat Redis loss as a queue reset, not a data loss event.
+- **Secrets:** stored in the platform's variable manager (Railway
+  per-service, Vercel project). The team's password manager has a "break
+  glass" export for disaster recovery. If a credential leaks (it happened
+  once with the Postgres password during setup): Railway Postgres →
+  Config → Regenerate password, then redeploy api + worker so they pick
+  up the new `${{Postgres.DATABASE_URL}}`.
 
 ---
 
@@ -276,27 +322,30 @@ Set the limit to ~1.5 GiB on Fly.io / Railway and let it cycle.
 ```bash
 # Read the API metrics (basic-auth — set in METRICS_USERNAME/PASSWORD)
 curl -u "$METRICS_USERNAME:$METRICS_PASSWORD" \
-     https://api.areyouagentic.com/api/metrics | jq
+     https://api-production-6eca.up.railway.app/api/metrics | jq
 
 # Tail API logs (Railway)
 railway logs --service api --tail
 
-# Tail worker logs (Fly.io)
-fly logs -a areyouagentic-worker
+# Tail worker logs (Railway)
+railway logs --service worker --tail
 
-# Connect to Neon
-psql "$DATABASE_URL"
+# Connect to Railway Postgres (from outside Railway, use the public URL:
+# Railway → Postgres → DATABASE_PUBLIC_URL)
+psql "$DATABASE_PUBLIC_URL"
 
-# Connect to Upstash
+# Connect to Railway Redis (public URL from the Redis service's variables)
 redis-cli -u "$REDIS_URL"
 
-# Re-run migrations
-pnpm --filter @areyouagentic/db prisma migrate deploy
+# Re-run migrations (see "Database migrations" for the full drill)
+DATABASE_URL=<DATABASE_PUBLIC_URL> \
+  pnpm --filter @areyouagentic/db exec prisma migrate deploy
 
-# Manual smoke test against staging
-curl -X POST https://staging-api.areyouagentic.com/api/analyze \
+# Manual smoke test against production
+curl -X POST https://api-production-6eca.up.railway.app/api/analyze \
      -H "Content-Type: application/json" \
      -d '{"url":"https://example.com"}'
+# → 202 + jobId; then poll GET /api/jobs/<jobId> until COMPLETED
 ```
 
 ---
@@ -305,7 +354,7 @@ curl -X POST https://staging-api.areyouagentic.com/api/analyze \
 
 - Anthropic quota or model issues → Anthropic support
   (`support@anthropic.com`).
-- Vercel / Neon / Upstash / Cloudflare / Railway / Fly.io →
+- Vercel / Railway (and Cloudflare once R2 is enabled) →
   the provider's status page first, then a support ticket.
 - Internal: on-call rotation in PagerDuty (or Slack `#oncall` if you
   haven't set up paging yet).

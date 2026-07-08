@@ -71,9 +71,14 @@ export type SafeFetchOptions = {
   maxBytes?: number;
   /** User-Agent to send. Default identifies our crawler. */
   userAgent?: string;
+  /**
+   * External abort (the job's hard deadline). Aborting cancels the in-flight
+   * hop immediately instead of letting it run out its own timeout.
+   */
+  signal?: AbortSignal;
 };
 
-const DEFAULTS: Required<SafeFetchOptions> = {
+const DEFAULTS: Required<Omit<SafeFetchOptions, 'signal'>> = {
   maxRedirects: 5,
   timeoutMs: 15_000,
   maxBytes: 10 * 1024 * 1024, // 10 MB
@@ -172,6 +177,11 @@ export async function safeFetch(
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), opts.timeoutMs);
+    // Chain the caller's deadline into the per-hop controller so a job-level
+    // abort cancels the connection now, not at the per-hop timeout.
+    const onOuterAbort = (): void => controller.abort();
+    if (opts.signal?.aborted) controller.abort();
+    else opts.signal?.addEventListener('abort', onOuterAbort, { once: true });
 
     let response: Response;
     try {
@@ -185,7 +195,6 @@ export async function safeFetch(
         },
       });
     } catch (err) {
-      clearTimeout(timer);
       const aborted = (err as Error).name === 'AbortError';
       return {
         ok: false,
@@ -194,9 +203,10 @@ export async function safeFetch(
           ? `Request to ${url.hostname} timed out after ${opts.timeoutMs}ms`
           : `Network error: ${(err as Error).message}`,
       };
+    } finally {
+      clearTimeout(timer);
+      opts.signal?.removeEventListener('abort', onOuterAbort);
     }
-
-    clearTimeout(timer);
 
     // Manual redirect handling — re-enter the loop with the new URL so it
     // goes through the same validation gate.

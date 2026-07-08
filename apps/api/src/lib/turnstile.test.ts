@@ -47,6 +47,22 @@ describe('siteverify', () => {
     expect(await siteverify('secret', 'token')).toBe(false);
   });
 
+  it('rejects a token solved on a different hostname', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ success: true, hostname: 'evil.example' })),
+    );
+    expect(await siteverify('secret', 'token', undefined, 'areyouagentic.vercel.app')).toBe(false);
+  });
+
+  it('accepts a token solved on the expected hostname', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse({ success: true, hostname: 'areyouagentic.vercel.app' })),
+    );
+    expect(await siteverify('secret', 'token', undefined, 'areyouagentic.vercel.app')).toBe(true);
+  });
+
   it('posts the secret, token, and remote ip to Cloudflare', async () => {
     const fetchMock = vi.fn(async () => jsonResponse({ success: true }));
     vi.stubGlobal('fetch', fetchMock);

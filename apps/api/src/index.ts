@@ -12,8 +12,6 @@ async function main(): Promise<void> {
 
   const app = await buildServer();
 
-  await app.listen({ port: env.PORT, host: '0.0.0.0' });
-
   let shuttingDown = false;
   const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     if (shuttingDown) return;
@@ -43,8 +41,12 @@ async function main(): Promise<void> {
     }
   };
 
+  // Registered BEFORE listen() so a signal arriving during startup is
+  // handled instead of killing the process mid-bind.
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
   process.on('SIGINT', () => void shutdown('SIGINT'));
+
+  await app.listen({ port: env.PORT, host: '0.0.0.0' });
 
   process.on('unhandledRejection', (reason) => {
     logger.error({ err: reason }, 'Unhandled promise rejection');

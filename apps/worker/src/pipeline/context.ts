@@ -45,6 +45,14 @@ export type AnalysisContext = {
 
   /** Per-job logger pre-tagged with jobId/url. */
   log: Logger;
+
+  /**
+   * Deadline signal from the worker's hard job timeout. Stages doing slow
+   * I/O (upstream fetch, Playwright navigation, LLM call) must honor it —
+   * without it, "timed out" jobs keep a Chromium process and an LLM socket
+   * busy long after the job was already marked FAILED.
+   */
+  signal?: AbortSignal;
 };
 
 export type Stage = (ctx: AnalysisContext) => Promise<AnalysisContext>;

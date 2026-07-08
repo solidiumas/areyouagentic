@@ -60,7 +60,9 @@ Set in the platform's variable manager (Railway per-service, Vercel project).
 - [x] `APP_URL = https://areyouagentic.vercel.app` — api (CORS origin)
 - [x] `NEXT_PUBLIC_API_URL = https://api-production-6eca.up.railway.app` —
       Vercel (baked in at build time → redeploy web after changing)
-- [x] `SESSION_SECRET`, `JWT_SECRET` — api (`openssl rand -base64 32`)
+- [ ] `SESSION_SECRET`, `JWT_SECRET` — **removed from the codebase** (no code
+      ever read them). Delete the values from the Railway api service; the
+      no-account Stripe model doesn't need sessions either.
 - [x] `METRICS_USERNAME`, `METRICS_PASSWORD` — api
 - [ ] `SENTRY_DSN` (server) / `NEXT_PUBLIC_SENTRY_DSN` (client) +
       `SENTRY_ENVIRONMENT=production` — **deferred** (wire before wide launch)
@@ -134,6 +136,14 @@ Set in the platform's variable manager (Railway per-service, Vercel project).
 - [x] Global API rate limit 30/min per IP.
 - [ ] Re-verify SSRF guard against the live API: `http://169.254.169.254/`,
       `http://localhost/`, `file:///etc/passwd` are all rejected.
+- [ ] Verify network-layer egress blocking on the **worker** host (deny
+      169.254.169.254, RFC1918, loopback): the in-process SSRF guards can't
+      fully close the DNS-rebinding TOCTOU window — SECURITY.md names this
+      firewall as the required backstop. Check what Railway private
+      networking actually blocks and document the result here.
+- [ ] Enable Turnstile in production (`TURNSTILE_SECRET_KEY` on the api,
+      `NEXT_PUBLIC_TURNSTILE_SITE_KEY` on Vercel + web redeploy) — it is
+      wired but off by default.
 
 ## 8. Backup verification
 

@@ -17,6 +17,13 @@ type TurnstileApi = {
     },
   ) => string;
   remove: (id: string) => void;
+  reset: (id: string) => void;
+};
+
+/** Imperative surface for parents that need to reset the widget (see below). */
+export type TurnstileWidgetHandle = {
+  /** Discard the current token and re-run the challenge to mint a fresh one. */
+  reset: () => void;
 };
 
 declare global {
@@ -29,11 +36,37 @@ declare global {
  * Cloudflare Turnstile widget. Renders only when NEXT_PUBLIC_TURNSTILE_SITE_KEY
  * is configured; otherwise it renders nothing and reports a `null` token, so
  * the captcha is opt-in and the default build pulls in no third-party script.
+ *
+ * Tokens are single-use: once submitted to the server they are spent whether
+ * the request succeeded or not, so forms must call `ref.reset()` after every
+ * submit attempt to mint a fresh token for the next try.
  */
-export function TurnstileWidget({ onToken }: { onToken: (token: string | null) => void }) {
+export function TurnstileWidget({
+  onToken,
+  ref,
+}: {
+  onToken: (token: string | null) => void;
+  ref?: React.Ref<TurnstileWidgetHandle>;
+}) {
   const containerRef = React.useRef<HTMLDivElement>(null);
   const widgetIdRef = React.useRef<string | null>(null);
   const [scriptReady, setScriptReady] = React.useState(false);
+
+  React.useImperativeHandle(
+    ref,
+    () => ({
+      reset: () => {
+        // Clear the parent's stored token first so a resubmit racing the new
+        // challenge can't replay the spent one. Guard the widget call: with no
+        // site key (or before the script loads) there is nothing to reset.
+        onToken(null);
+        if (widgetIdRef.current && window.turnstile) {
+          window.turnstile.reset(widgetIdRef.current);
+        }
+      },
+    }),
+    [onToken],
+  );
 
   React.useEffect(() => {
     if (!TURNSTILE_SITE_KEY || !scriptReady || !containerRef.current || !window.turnstile) return;

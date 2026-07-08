@@ -12,16 +12,15 @@
  */
 import { prisma } from '@areyouagentic/db';
 import { extractScreenshotKeys } from '@areyouagentic/shared';
+import { env } from './lib/env.js';
 import { logger } from './lib/logger.js';
 import { deleteScreenshots } from './lib/r2.js';
 
-const RETENTION_DAYS = Number(process.env.RETENTION_DAYS ?? 90);
-const BATCH_SIZE = Number(process.env.RETENTION_BATCH_SIZE ?? 500);
+// Via the Zod-validated env (fail-fast on garbage), like every other knob.
+const RETENTION_DAYS = env.RETENTION_DAYS;
+const BATCH_SIZE = env.RETENTION_BATCH_SIZE;
 
 export async function deleteExpiredJobs(now: Date = new Date()): Promise<number> {
-  if (!Number.isFinite(RETENTION_DAYS) || RETENTION_DAYS <= 0) {
-    throw new Error(`Invalid RETENTION_DAYS: ${RETENTION_DAYS}`);
-  }
   const cutoff = new Date(now.getTime() - RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
   let totalDeleted = 0;

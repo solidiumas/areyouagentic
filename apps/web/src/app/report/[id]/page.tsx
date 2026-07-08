@@ -14,6 +14,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { DeleteReportButton } from '@/components/delete-report-button';
+import { LocalTime } from '@/components/local-time';
 import { ApiClientError, getReport } from '@/lib/api';
 import {
   DIMENSIONS,
@@ -98,7 +99,10 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
           <span className="break-all">{report.finalUrl}</span>
           <span aria-hidden>·</span>
-          <time dateTime={report.createdAt.toISOString()}>{report.createdAt.toLocaleString()}</time>
+          {/* Client component: localizes to the viewer's timezone, not the
+              server region's (this is a server component, so toLocaleString()
+              here would render in the Vercel region's timezone). */}
+          <LocalTime iso={report.createdAt.toISOString()} />
         </div>
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
           {report.pageTitle ?? 'Agentic readiness report'}

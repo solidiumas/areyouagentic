@@ -50,11 +50,11 @@ export const TIMEOUTS = Object.freeze({
   fetch: 15_000,
   /** Time we allow a headless browser to render the page. */
   render: 30_000,
-  /** Wall-clock cap on a full analysis job before it's marked FAILED. */
-  job: 120_000,
   /** robots.txt / sitemap probes are small; keep them snappy. */
   probe: 5_000,
-  /** API request → worker queue handoff. */
-  enqueue: 2_000,
+  // NOTE: the job wall-clock cap is NOT here — it's the worker's
+  // JOB_TIMEOUT_MS env (default 90s, apps/worker/src/lib/env.ts) so it can
+  // be tuned per deployment. A `job` entry here previously said 120s and
+  // nothing read it; one stale "source of truth" is worse than none.
 });
 export type Timeouts = typeof TIMEOUTS;

@@ -49,8 +49,16 @@ export async function metricsRoutes(app: FastifyInstance): Promise<void> {
   app.get(
     '/api/metrics',
     {
-      // Metrics scrapers should never be rate-limited.
-      config: { rateLimit: false },
+      // Generous enough for any scraper (they poll on the order of once a
+      // minute), tight enough that the basic-auth password can't be
+      // brute-forced online.
+      config: {
+        rateLimit: {
+          max: 30,
+          timeWindow: '1 minute',
+          keyGenerator: (req) => `metrics:${req.ip}`,
+        },
+      },
       preHandler: async (req, reply) => {
         if (!verifyBasicAuth(req)) {
           return rejectUnauthorized(reply);

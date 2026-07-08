@@ -45,7 +45,10 @@ async function runStage(
  *   - score depends on analyze findings → sequential
  *   - persist writes the resulting Report → sequential, last
  */
-export async function runAnalysis(job: Job<AnalysisJobPayload>): Promise<void> {
+export async function runAnalysis(
+  job: Job<AnalysisJobPayload>,
+  signal?: AbortSignal,
+): Promise<void> {
   const { jobId, url, requestId } = job.data;
   // requestId carries through from the originating HTTP request — log it so
   // worker entries can be joined with API entries for the same flow.
@@ -75,7 +78,7 @@ export async function runAnalysis(job: Job<AnalysisJobPayload>): Promise<void> {
   });
   await setProgress(job, 'queued');
 
-  let ctx: AnalysisContext = { url, jobId, findings: {}, log };
+  let ctx: AnalysisContext = { url, jobId, findings: {}, log, signal };
 
   try {
     await setProgress(job, 'fetch');

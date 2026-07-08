@@ -37,6 +37,11 @@ const envSchema = z.object({
   // node:http server on this port to answer /health.
   HEALTH_PORT: z.coerce.number().int().positive().default(4001),
 
+  // Data-retention cron (retention.ts): delete jobs/reports older than this
+  // many days, in batches of RETENTION_BATCH_SIZE.
+  RETENTION_DAYS: z.coerce.number().int().positive().default(90),
+  RETENTION_BATCH_SIZE: z.coerce.number().int().positive().default(500),
+
   // Sentry is opt-in. Without a DSN the SDK never initializes.
   SENTRY_DSN: z.string().url().optional(),
   SENTRY_ENVIRONMENT: z.string().optional(),
@@ -52,7 +57,6 @@ function loadEnv(): Env {
     const issues = parsed.error.issues
       .map((i) => `  - ${i.path.join('.') || '(root)'}: ${i.message}`)
       .join('\n');
-    // eslint-disable-next-line no-console
     console.error(`Invalid worker environment configuration:\n${issues}`);
     process.exit(1);
   }

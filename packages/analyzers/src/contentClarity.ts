@@ -1,6 +1,7 @@
 import type { Finding } from '@areyouagentic/shared';
 import type { Analyzer, AnalyzerResult } from './types.js';
 import { clampScore, getVisibleText, loadHtml, snippet } from './utils/dom.js';
+import { jaccardWords } from './utils/text.js';
 
 export const CC_FINDINGS = {
   TITLE_MISSING: 'CC_TITLE_MISSING',
@@ -30,10 +31,10 @@ export function findMainContentText(html: string): { text: string; selector: str
   const $ = loadHtml(html);
 
   const main = $('main').first();
-  if (main.length > 0) return { text: textOf($, main), selector: 'main' };
+  if (main.length > 0) return { text: textOf(main), selector: 'main' };
 
   const article = $('article').first();
-  if (article.length > 0) return { text: textOf($, article), selector: 'article' };
+  if (article.length > 0) return { text: textOf(article), selector: 'article' };
 
   let bestSection: { len: number; el: ReturnType<typeof $> } | null = null;
   $('section').each((_, el) => {
@@ -43,7 +44,7 @@ export function findMainContentText(html: string): { text: string; selector: str
   });
   if (bestSection !== null) {
     const found = bestSection as { len: number; el: ReturnType<typeof $> };
-    if (found.len > 200) return { text: textOf($, found.el), selector: 'section' };
+    if (found.len > 200) return { text: textOf(found.el), selector: 'section' };
   }
 
   const $body = $('body').clone();
@@ -52,14 +53,10 @@ export function findMainContentText(html: string): { text: string; selector: str
   return { text: $body.text().replace(/\s+/g, ' ').trim(), selector: 'body-minus-boilerplate' };
 }
 
-function textOf(
-  $: ReturnType<typeof loadHtml>,
-  el: ReturnType<ReturnType<typeof loadHtml>>,
-): string {
+function textOf(el: ReturnType<ReturnType<typeof loadHtml>>): string {
   const clone = el.clone();
   clone.find('script, style, noscript, template').remove();
   return clone.text().replace(/\s+/g, ' ').trim();
-  void $;
 }
 
 /**
@@ -281,21 +278,3 @@ export const contentClarityAnalyzer: Analyzer = (input): AnalyzerResult => {
     },
   };
 };
-
-function jaccardWords(a: string, b: string): number {
-  const tok = (s: string) =>
-    new Set(
-      s
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, ' ')
-        .split(/\s+/)
-        .filter((w) => w.length > 2),
-    );
-  const A = tok(a);
-  const B = tok(b);
-  if (A.size === 0 || B.size === 0) return 0;
-  let inter = 0;
-  for (const w of A) if (B.has(w)) inter++;
-  const union = new Set([...A, ...B]).size;
-  return union === 0 ? 0 : inter / union;
-}

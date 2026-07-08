@@ -57,16 +57,24 @@ export function createAnalysisWorker(): AnalysisWorker {
       }
 
       let timer: NodeJS.Timeout | undefined;
+      // Hard timeout: race the pipeline against a deadline AND abort it. The
+      // race alone only fails the job — without the abort, the pipeline's
+      // Chromium process and LLM socket keep working long after the job was
+      // marked FAILED. Stages honor the signal (safeFetch, render, llm).
+      const controller = new AbortController();
       try {
-        // Hard timeout: race the pipeline against a deadline. BullMQ doesn't
-        // enforce per-job wall-clock limits itself, so we do it here.
+        const pipeline = runAnalysis(job as Job<AnalysisJobPayload>, controller.signal);
+        // The losing side of the race still settles later; without a handler
+        // its rejection becomes an unhandledRejection and can kill the
+        // process. The job outcome is decided by the race below.
+        pipeline.catch(() => {});
         await Promise.race([
-          runAnalysis(job as Job<AnalysisJobPayload>),
+          pipeline,
           new Promise<never>((_, reject) => {
-            timer = setTimeout(
-              () => reject(new Error(`Job timed out after ${env.JOB_TIMEOUT_MS}ms`)),
-              env.JOB_TIMEOUT_MS,
-            );
+            timer = setTimeout(() => {
+              controller.abort();
+              reject(new Error(`Job timed out after ${env.JOB_TIMEOUT_MS}ms`));
+            }, env.JOB_TIMEOUT_MS);
           }),
         ]);
       } catch (err) {

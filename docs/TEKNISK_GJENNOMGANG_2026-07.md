@@ -95,6 +95,25 @@ Dette er forutsetninger for Stripe (H1) og de tingene som kan skade brukere/øko
 
 ### Fase 1 — Herding og drift (~1–2 uker, kan delvis parallelt med fase 2)
 
+> **Status 2026-07-08: gjennomført i kode** (branch `fase-1-herding`). Dedup
+> kjører nå som én serialiserbar transaksjon med 15-min aktivt-vindu;
+> dedup-nøkkelen er SHA-256-hashet (ingen hemmeligheter persisteres);
+> AbortSignal trådes gjennom hele pipelinen (fetch/render/LLM); JSONB
+> valideres ved skriving; frontend-polling har backoff + 10-min-tak +
+> visibility-pause; Turnstile-token nullstilles per forsøk; tidsstempler
+> vises i leserens tidssone; turbo.json-env komplett; døde
+> SESSION_SECRET/JWT_SECRET fjernet; CI kjører nå web-E2E + migrasjonsgate;
+> RUNBOOK omskrevet til Railway/Vercel; cookie-banner-detektoren er lineær;
+> screenshots cappes; pluss en rekke lav-fikser (FST_ERR-mapping, metrics
+> rate limit, Turnstile hostname-binding, signalhandlere før listen,
+> RETENTION_DAYS via Zod-env, jaccard-dedup, død kode).
+> **Bonusfunn:** web-CSP-en manglet `'unsafe-eval'` i dev, så `next dev`
+> hydrerte aldri klientkomponenter (skjemaet falt tilbake til naken GET) —
+> fikset dev-only; prod-CSP uendret.
+> **Gjenstår som operatøroppgaver** (i DEPLOYMENT_CHECKLIST): verifisere
+> egress-blokkering på Railway-workeren, slå på Turnstile i prod, slette
+> SESSION_SECRET/JWT_SECRET fra Railway.
+
 7. M1 dedup-fix (aktiv-status-match + partiell unik indeks — krever migrasjon fra fase 0).
 8. M3 full AbortSignal-gjennomtråding i pipeline.
 9. M4 Zod-validering på JSONB-write.

@@ -4,10 +4,10 @@ import {
   validateAnalyzableUrl,
   type UrlValidationReason,
 } from '@areyouagentic/shared';
-import { JobStatus, prisma } from '@areyouagentic/db';
+import { JobStatus, Prisma, prisma } from '@areyouagentic/db';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createDeleteToken } from '../lib/deleteToken.js';
-import { normalizeUrl } from '../lib/normalizeUrl.js';
+import { urlDedupKey } from '../lib/normalizeUrl.js';
 import { enqueueAnalysis } from '../lib/queue.js';
 import { ANALYZE_PER_DAY, ANALYZE_PER_MINUTE } from '../lib/rateLimiter.js';
 import { turnstileEnabled, verifyTurnstileToken } from '../lib/turnstile.js';
@@ -30,11 +30,36 @@ async function turnstileGuard(req: FastifyRequest, _reply: FastifyReply): Promis
   }
 }
 
-/** Window during which an in-flight job dedupes a fresh request. */
-const IN_FLIGHT_WINDOW_MS = 60 * 1000;
+/**
+ * How old a PENDING/RUNNING job may be and still dedupe a fresh request.
+ * This must comfortably exceed the worst-case analysis lifetime — 3 BullMQ
+ * attempts × 90s job timeout + exponential backoff — or slow analyses stop
+ * deduping mid-run and spawn duplicate work. The cap exists only so an
+ * orphaned row (process died between create and enqueue) can't block a URL
+ * forever.
+ */
+const ACTIVE_JOB_MAX_AGE_MS = 15 * 60 * 1000;
 
 /** Window during which a completed report's job id is returned as cached. */
 const COMPLETED_CACHE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Retry a serializable transaction that lost a write-conflict race (Prisma
+ * P2034). Two concurrent submits of the same URL both pass the dedupe reads;
+ * serializable isolation aborts one instead of letting both insert — the
+ * retry re-runs the dedupe and returns the winner's row.
+ */
+async function withSerializableRetry<T>(fn: () => Promise<T>): Promise<T> {
+  const MAX_ATTEMPTS = 3;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const conflict = err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2034';
+      if (!conflict || attempt >= MAX_ATTEMPTS) throw err;
+    }
+  }
+}
 
 /** Map url-validator reasons to client-facing messages. The reason code is
  * also returned in `details.reason` so the web app can localize. */
@@ -99,62 +124,89 @@ export async function analyzeRoutes(app: FastifyInstance): Promise<void> {
       }
 
       const url = ssrf.url.toString();
-      const normalizedUrl = normalizeUrl(ssrf.url);
+      // SHA-256 of the normalized URL — the plaintext (which can carry
+      // secret-bearing query params) is never persisted. See urlDedupKey.
+      const normalizedUrl = urlDedupKey(ssrf.url);
       const now = Date.now();
 
-      // 1) In-flight dedupe — return the existing job id within the 60s window.
-      const inFlight = await prisma.analysisJob.findFirst({
-        where: {
-          normalizedUrl,
-          status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
-          createdAt: { gte: new Date(now - IN_FLIGHT_WINDOW_MS) },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-      if (inFlight) {
+      const { token: deleteToken, hash: deleteTokenHash } = createDeleteToken();
+
+      // Dedupe + create runs as ONE serializable transaction: the naive
+      // check-then-create is a TOCTOU race where two concurrent submits of
+      // the same URL both pass the reads and both insert. Serializable
+      // isolation makes the loser abort (P2034) and retry into the dedupe
+      // branch instead.
+      type DedupeOutcome =
+        | { kind: 'in-flight' | 'cached'; jobId: string }
+        | { kind: 'created'; jobId: string };
+
+      const outcome = await withSerializableRetry<DedupeOutcome>(() =>
+        prisma.$transaction(
+          async (tx) => {
+            // 1) In-flight dedupe — any active job for this URL young enough
+            //    to plausibly still be worked on.
+            const inFlight = await tx.analysisJob.findFirst({
+              where: {
+                normalizedUrl,
+                status: { in: [JobStatus.PENDING, JobStatus.RUNNING] },
+                createdAt: { gte: new Date(now - ACTIVE_JOB_MAX_AGE_MS) },
+              },
+              orderBy: { createdAt: 'desc' },
+              select: { id: true },
+            });
+            if (inFlight) return { kind: 'in-flight', jobId: inFlight.id };
+
+            // 2) Completed-cache dedupe — return the most recent COMPLETED
+            //    job's id inside the 24h window with `cached: true`.
+            const cached = await tx.analysisJob.findFirst({
+              where: {
+                normalizedUrl,
+                status: JobStatus.COMPLETED,
+                completedAt: { gte: new Date(now - COMPLETED_CACHE_WINDOW_MS) },
+              },
+              orderBy: { completedAt: 'desc' },
+              select: { id: true },
+            });
+            if (cached) return { kind: 'cached', jobId: cached.id };
+
+            // 3) Fresh job — insert the PENDING row. Persist a masked copy of
+            //    the URL (secrets in query params redacted): the row is
+            //    retained for 90 days and the report derived from it is
+            //    public. The *real* URL goes only on the ephemeral queue
+            //    payload, which is what the worker actually fetches.
+            const job = await tx.analysisJob.create({
+              data: {
+                url: maskSensitiveUrl(url),
+                normalizedUrl,
+                status: JobStatus.PENDING,
+                deleteTokenHash,
+              },
+              select: { id: true },
+            });
+            return { kind: 'created', jobId: job.id };
+          },
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        ),
+      );
+
+      if (outcome.kind === 'in-flight') {
         req.log.info(
-          { jobId: inFlight.id, normalizedUrl, dedupe: 'in-flight' },
+          { jobId: outcome.jobId, normalizedUrl, dedupe: 'in-flight' },
           'Reusing in-flight analysis job',
         );
-        return reply.code(202).send({ jobId: inFlight.id } satisfies AnalyzeResponseBody);
+        return reply.code(202).send({ jobId: outcome.jobId } satisfies AnalyzeResponseBody);
       }
-
-      // 2) Completed-cache dedupe — return the most recent COMPLETED job's id
-      //    inside the 24h window with `cached: true`.
-      const cached = await prisma.analysisJob.findFirst({
-        where: {
-          normalizedUrl,
-          status: JobStatus.COMPLETED,
-          completedAt: { gte: new Date(now - COMPLETED_CACHE_WINDOW_MS) },
-        },
-        orderBy: { completedAt: 'desc' },
-      });
-      if (cached) {
+      if (outcome.kind === 'cached') {
         req.log.info(
-          { jobId: cached.id, normalizedUrl, dedupe: 'completed-cache' },
+          { jobId: outcome.jobId, normalizedUrl, dedupe: 'completed-cache' },
           'Returning cached analysis job',
         );
         return reply
           .code(200)
-          .send({ jobId: cached.id, cached: true } satisfies AnalyzeResponseBody);
+          .send({ jobId: outcome.jobId, cached: true } satisfies AnalyzeResponseBody);
       }
 
-      // 3) Fresh job — insert PENDING row, enqueue, return jobId.
-      // Persist a masked copy of the URL (secrets in query params redacted):
-      // the row is retained for 90 days and the report derived from it is
-      // public. The *real* URL goes only on the ephemeral queue payload, which
-      // is what the worker actually fetches. `normalizedUrl` (the dedup key)
-      // keeps real values so distinct tokens never collapse to one report.
-      const { token: deleteToken, hash: deleteTokenHash } = createDeleteToken();
-      const job = await prisma.analysisJob.create({
-        data: {
-          url: maskSensitiveUrl(url),
-          normalizedUrl,
-          status: JobStatus.PENDING,
-          deleteTokenHash,
-        },
-        select: { id: true },
-      });
+      const job = { id: outcome.jobId };
 
       try {
         await enqueueAnalysis({ jobId: job.id, url, normalizedUrl, requestId: req.id });
