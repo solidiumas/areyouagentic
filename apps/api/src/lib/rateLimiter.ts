@@ -1,6 +1,7 @@
 import rateLimit from '@fastify/rate-limit';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { Redis } from 'ioredis';
+import { HttpError } from '../plugins/errorHandler.js';
 import { createRedisConnection } from './queue.js';
 
 /**
@@ -32,13 +33,15 @@ export async function registerGlobalRateLimit(app: FastifyInstance): Promise<voi
     timeWindow: '1 minute',
     redis: getRateLimitRedis(),
     keyGenerator: (req: FastifyRequest) => req.ip,
-    // Use the standard envelope so clients see the same shape on 429 as 4xx.
-    errorResponseBuilder: (_req, context) => ({
-      error: {
-        code: 'RATE_LIMITED',
-        message: `Rate limit exceeded, retry in ${context.after}`,
-      },
-    }),
+    // The plugin throws whatever this returns, so it must be an HttpError: the
+    // error handler only trusts an explicit statusCode, and a plain envelope
+    // object would surface as a 500 instead of the 429.
+    errorResponseBuilder: (_req, context) =>
+      new HttpError(
+        context.statusCode,
+        'RATE_LIMITED',
+        `Rate limit exceeded, retry in ${context.after}`,
+      ),
   });
 }
 
