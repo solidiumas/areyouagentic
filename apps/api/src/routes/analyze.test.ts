@@ -215,28 +215,25 @@ describe('POST /api/analyze', () => {
     expect(res.json().error.code).toBe('PAYLOAD_TOO_LARGE');
   });
 
-  // Skipped in CI: under GitHub Actions the BullMQ.add() call past the 5th
-  // request 500s before @fastify/rate-limit hands back its 429 (likely a
-  // Redis pool / queue-backend timing issue specific to the runner). The
-  // rate-limit behaviour itself is exercised locally and against a real
-  // Redis in staging; this test gives the wrong signal in CI.
-  it.skipIf(process.env.CI === 'true')(
-    'returns 429 once the per-IP per-minute cap (5) is reached',
-    async () => {
-      const ip = uniqueIpHeader();
-      const statuses: number[] = [];
+  it('returns 429 once the per-IP per-minute cap (5) is reached', async () => {
+    const ip = uniqueIpHeader();
+    const statuses: number[] = [];
+    let limited: Awaited<ReturnType<typeof app.inject>> | undefined;
 
-      for (let i = 0; i < 10; i++) {
-        const res = await app.inject({
-          method: 'POST',
-          url: '/api/analyze',
-          headers: ip,
-          payload: { url: `https://example.com/p${i}` },
-        });
-        statuses.push(res.statusCode);
-      }
+    for (let i = 0; i < 10; i++) {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/api/analyze',
+        headers: ip,
+        payload: { url: `https://example.com/p${i}` },
+      });
+      statuses.push(res.statusCode);
+      if (res.statusCode === 429) limited ??= res;
+    }
 
-      expect(statuses).toContain(429);
-    },
-  );
+    expect(statuses).not.toContain(500);
+    expect(statuses).toContain(429);
+    expect(limited?.json().error.code).toBe('RATE_LIMITED');
+    expect(limited?.headers['retry-after']).toBeDefined();
+  });
 });

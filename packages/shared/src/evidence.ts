@@ -23,7 +23,7 @@ export const evidenceItemSchema = z.object({
   /** ISO-8601 timestamp string. */
   capturedAt: z.string().datetime(),
   description: z.string().optional(),
-  metadata: z.record(z.unknown()).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
 });
 export type EvidenceItem = z.infer<typeof evidenceItemSchema>;
 
