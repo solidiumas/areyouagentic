@@ -21,7 +21,10 @@ jobs:
   # subsequent jobs benefit from work this one did.
   verify:
     name: Verify (lint, typecheck, build, test)
-    runs-on: ubuntu-latest
+    # Pinned: `playwright install --with-deps` only supports the Ubuntu
+    # releases its version knows, and ubuntu-latest moved to 26.04 which
+    # Playwright 1.55 rejects. Bump together with the Playwright version.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     # api and worker integration tests need Postgres + Redis. The default

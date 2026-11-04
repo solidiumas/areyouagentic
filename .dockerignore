@@ -34,7 +34,7 @@ Thumbs.db
 
 # Tooling caches
 .eslintcache
-*.tsbuildinfo
+**/*.tsbuildinfo
 .pnpm-store
 
 # Docs and Claude scratch

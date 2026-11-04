@@ -32,8 +32,7 @@ export type UrlValidationReason =
   | 'reserved-ip';
 
 export type UrlValidationResult =
-  | { ok: true; url: URL }
-  | { ok: false; reason: UrlValidationReason; message: string };
+  { ok: true; url: URL } | { ok: false; reason: UrlValidationReason; message: string };
 
 // Hostnames that are *names* rather than addresses, but still resolve to the
 // local machine on most systems. The IP form (127.0.0.1, ::1) is handled
