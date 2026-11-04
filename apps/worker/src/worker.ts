@@ -4,15 +4,19 @@ import { env } from './lib/env.js';
 import { logger } from './lib/logger.js';
 import {
   ANALYSIS_QUEUE_NAME,
+  QUEUE_PREFIX,
   type AnalysisJobPayload,
+  type CleanupScreenshotsPayload,
+  type QueueJobPayload,
   createRedisConnection,
 } from './lib/queue.js';
+import { deleteScreenshots } from './lib/r2.js';
 import { captureException } from './lib/sentry.js';
 import { runAnalysis } from './pipeline/runAnalysis.js';
 import { PermanentJobError } from './pipeline/context.js';
 
 export type AnalysisWorker = {
-  worker: Worker<AnalysisJobPayload>;
+  worker: Worker<QueueJobPayload>;
   connection: Redis;
 };
 
@@ -38,20 +42,40 @@ const DEFAULT_WORKER_OPTIONS: Pick<
 export function createAnalysisWorker(): AnalysisWorker {
   const connection = createRedisConnection();
 
-  const worker = new Worker<AnalysisJobPayload>(
+  const worker = new Worker<QueueJobPayload>(
     ANALYSIS_QUEUE_NAME,
-    async (job: Job<AnalysisJobPayload>) => {
+    async (job: Job<QueueJobPayload>) => {
+      // Cheap maintenance jobs (R2 object deletion after a user deletes a
+      // report) share the queue with analyses — dispatch on job name.
+      if (job.name === 'cleanup-screenshots') {
+        const { screenshotKeys, requestId } = job.data as CleanupScreenshotsPayload;
+        await deleteScreenshots(screenshotKeys);
+        logger.info(
+          { deleted: screenshotKeys.length, requestId },
+          'cleanup-screenshots: deleted R2 objects',
+        );
+        return;
+      }
+
       let timer: NodeJS.Timeout | undefined;
+      // Hard timeout: race the pipeline against a deadline AND abort it. The
+      // race alone only fails the job — without the abort, the pipeline's
+      // Chromium process and LLM socket keep working long after the job was
+      // marked FAILED. Stages honor the signal (safeFetch, render, llm).
+      const controller = new AbortController();
       try {
-        // Hard timeout: race the pipeline against a deadline. BullMQ doesn't
-        // enforce per-job wall-clock limits itself, so we do it here.
+        const pipeline = runAnalysis(job as Job<AnalysisJobPayload>, controller.signal);
+        // The losing side of the race still settles later; without a handler
+        // its rejection becomes an unhandledRejection and can kill the
+        // process. The job outcome is decided by the race below.
+        pipeline.catch(() => {});
         await Promise.race([
-          runAnalysis(job),
+          pipeline,
           new Promise<never>((_, reject) => {
-            timer = setTimeout(
-              () => reject(new Error(`Job timed out after ${env.JOB_TIMEOUT_MS}ms`)),
-              env.JOB_TIMEOUT_MS,
-            );
+            timer = setTimeout(() => {
+              controller.abort();
+              reject(new Error(`Job timed out after ${env.JOB_TIMEOUT_MS}ms`));
+            }, env.JOB_TIMEOUT_MS);
           }),
         ]);
       } catch (err) {
@@ -67,6 +91,7 @@ export function createAnalysisWorker(): AnalysisWorker {
     },
     {
       connection,
+      prefix: QUEUE_PREFIX,
       concurrency: env.WORKER_CONCURRENCY,
       ...DEFAULT_WORKER_OPTIONS,
     },

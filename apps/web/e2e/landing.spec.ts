@@ -32,11 +32,18 @@ test('user enters a URL and is redirected to the analyzing page', async ({ page 
   await expect(page.getByRole('heading', { level: 1, name: /are you agentic/i })).toBeVisible();
 
   const urlInput = page.getByLabel(/website url to analyze/i);
-  await urlInput.fill(TARGET_URL);
 
-  await page.getByRole('button', { name: /^analyze/i }).click();
-
-  await page.waitForURL(`**/analyzing/${FAKE_JOB_ID}`);
+  // `next dev` compiles the page on first request and hydrates late — a fill
+  // or click that lands before React takes over the controlled form is
+  // silently discarded (the input snaps back to empty and the click has no
+  // handler). Retry the whole fill → submit → navigate sequence until the
+  // hydrated form actually handles it.
+  await expect(async () => {
+    await urlInput.fill(TARGET_URL);
+    await expect(urlInput).toHaveValue(TARGET_URL);
+    await page.getByRole('button', { name: /^analyze/i }).click();
+    await page.waitForURL(`**/analyzing/${FAKE_JOB_ID}`, { timeout: 5_000 });
+  }).toPass({ timeout: 60_000 });
   await expect(page).toHaveURL(new RegExp(`/analyzing/${FAKE_JOB_ID}$`));
 
   await expect(page.getByRole('heading', { level: 1, name: /analyzing your site/i })).toBeVisible();

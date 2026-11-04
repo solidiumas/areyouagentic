@@ -14,6 +14,20 @@ import type { JobStatus, JobStatusResponse } from '@areyouagentic/shared';
 
 const POLL_INTERVAL_MS = 1500;
 const STALE_PROGRESS_WARNING_MS = 60_000;
+/**
+ * Once progress has been stalled past the warning threshold we back off
+ * exponentially (1.5s → 3s → 6s → 12s → 15s) so a wedged worker doesn't get
+ * hammered every 1.5s indefinitely. Capped so a recovery is still noticed
+ * within a reasonable window.
+ */
+const MAX_POLL_INTERVAL_MS = 15_000;
+/**
+ * Hard ceiling on total polling time. Jobs finish in well under a minute when
+ * healthy; after 10 minutes something is definitively wrong, and an abandoned
+ * tab shouldn't keep polling the API forever. We stop and tell the user to
+ * refresh instead.
+ */
+const MAX_TOTAL_POLLING_MS = 10 * 60_000;
 
 /**
  * Visible analyzer steps. We map a 0–100 progress value into a step index,
@@ -51,6 +65,7 @@ export function AnalyzingChecklist({ jobId }: { jobId: string }) {
   const [job, setJob] = React.useState<JobStatusResponse | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [stalled, setStalled] = React.useState(false);
+  const [timedOut, setTimedOut] = React.useState(false);
 
   // Track when progress last *changed* so we can warn the user if the worker
   // appears stuck. We compare the last-seen progress, not the timestamp.
@@ -61,9 +76,33 @@ export function AnalyzingChecklist({ jobId }: { jobId: string }) {
 
   React.useEffect(() => {
     let cancelled = false;
+    // Set once we reach a terminal polling state (job gone, navigated away,
+    // or the 10-minute cap hit) so a later visibilitychange can't revive the
+    // loop. Distinct from `cancelled`, which only means "effect torn down".
+    let stopped = false;
     const controller = new AbortController();
+    const startedAt = Date.now();
+    // setTimeout-chaining instead of setInterval: the delay between polls is
+    // dynamic (backoff while stalled) and we must be able to skip scheduling
+    // entirely while the tab is hidden.
+    let timeoutId: number | null = null;
+    let intervalMs = POLL_INTERVAL_MS;
+
+    const schedule = () => {
+      if (cancelled || stopped) return;
+      // Hidden tab: don't schedule at all. The visibilitychange handler polls
+      // immediately (and restarts the chain) when the tab becomes visible.
+      if (document.hidden) return;
+      timeoutId = window.setTimeout(() => void tick(), intervalMs);
+    };
 
     const tick = async () => {
+      if (cancelled || stopped) return;
+      if (Date.now() - startedAt >= MAX_TOTAL_POLLING_MS) {
+        stopped = true;
+        setTimedOut(true);
+        return;
+      }
       try {
         const next = await getJobStatus(jobId, { signal: controller.signal });
         if (cancelled) return;
@@ -76,37 +115,61 @@ export function AnalyzingChecklist({ jobId }: { jobId: string }) {
         if (value !== last.value) {
           lastProgressRef.current = { value, at: Date.now() };
           setStalled(false);
+          // Progress resumed — go back to the fast poll cadence.
+          intervalMs = POLL_INTERVAL_MS;
         } else if (
           Date.now() - last.at > STALE_PROGRESS_WARNING_MS &&
           next.status !== 'COMPLETED'
         ) {
           setStalled(true);
+          // Stalled: double the delay each poll, capped, to ease API load.
+          intervalMs = Math.min(intervalMs * 2, MAX_POLL_INTERVAL_MS);
         }
 
         if (next.status === 'COMPLETED' && next.reportId) {
           // Carry the one-time delete token from the job to the report so the
           // report page can offer self-service deletion.
           promoteDeleteToken(jobId, next.reportId);
+          stopped = true;
           router.replace(`/report/${encodeURIComponent(next.reportId)}`);
+          return;
+        }
+        if (next.status === 'FAILED') {
+          // Terminal — the failure UI takes over; no point polling further.
+          stopped = true;
           return;
         }
       } catch (err) {
         if (cancelled || (err as Error).name === 'AbortError') return;
         if (err instanceof ApiClientError && err.status === 404) {
+          stopped = true;
           setError('This job no longer exists. It may have expired.');
           return;
         }
         setError(err instanceof ApiClientError ? err.message : 'Lost connection. Retrying…');
       }
+      schedule();
     };
 
+    const onVisibilityChange = () => {
+      if (cancelled || stopped || document.hidden) return;
+      // Back in view: clear any pending timer (defensive — there shouldn't
+      // be one while hidden) and poll right away for a fresh status.
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      void tick();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     void tick();
-    const id = window.setInterval(() => void tick(), POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
       controller.abort();
-      window.clearInterval(id);
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [jobId, router]);
 
@@ -177,7 +240,19 @@ export function AnalyzingChecklist({ jobId }: { jobId: string }) {
         })}
       </ol>
 
-      {stalled ? (
+      {timedOut ? (
+        <Alert variant="warning">
+          <Clock className="h-4 w-4" aria-hidden />
+          <AlertTitle>This is taking longer than expected</AlertTitle>
+          <AlertDescription>
+            We&rsquo;ve stopped checking automatically. Refresh the page to check again, or
+            <Link href="/" className="ml-1 underline underline-offset-2">
+              try another URL
+            </Link>
+            .
+          </AlertDescription>
+        </Alert>
+      ) : stalled ? (
         <Alert variant="warning">
           <Clock className="h-4 w-4" aria-hidden />
           <AlertTitle>This is taking longer than expected</AlertTitle>

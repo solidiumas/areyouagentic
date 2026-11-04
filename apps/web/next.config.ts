@@ -24,7 +24,13 @@ function buildCsp(): string {
   const turnstileEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
   const cf = 'https://challenges.cloudflare.com';
 
-  const scriptSrc = ["'self'", "'unsafe-inline'", turnstileEnabled ? cf : null]
+  // Dev only: Next's dev runtime (react-refresh/HMR) evaluates code via
+  // eval(), so without 'unsafe-eval' the page never hydrates under `next dev`
+  // — client components stay inert and forms fall back to native GET submits.
+  // Production builds don't eval, so the shipped policy stays tight.
+  const devEval = process.env.NODE_ENV === 'development' ? "'unsafe-eval'" : null;
+
+  const scriptSrc = ["'self'", "'unsafe-inline'", devEval, turnstileEnabled ? cf : null]
     .filter(Boolean)
     .join(' ');
   const connectSrc = ["'self'", apiUrl, turnstileEnabled ? cf : null].filter(Boolean).join(' ');

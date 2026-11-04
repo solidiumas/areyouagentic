@@ -6,8 +6,10 @@
 #
 #   docker build -f apps/web/Dockerfile -t areyouagentic-web .
 #
-# Vercel is the recommended hosting; this image is for self-hosted setups
-# (Docker Compose staging, Fly.io, k8s).
+# Production runs this image on Azure Container Apps (see infra/). The
+# NEXT_PUBLIC_* values are inlined into the client bundle and the CSP at build
+# time, so they are build args, not runtime env: changing the API or site URL
+# means rebuilding the image.
 
 # ── 1. base ──────────────────────────────────────────────────────────────
 FROM node:20-alpine AS base
@@ -33,7 +35,19 @@ RUN pnpm config set store-dir /pnpm/store \
 
 # ── 3. build — produce .next/standalone ──────────────────────────────────
 FROM deps AS build
-ENV NEXT_TELEMETRY_DISABLED=1
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
+ARG NEXT_PUBLIC_SENTRY_DSN
+ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT
+ARG NEXT_PUBLIC_SENTRY_RELEASE
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY \
+    NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT=$NEXT_PUBLIC_SENTRY_ENVIRONMENT \
+    NEXT_PUBLIC_SENTRY_RELEASE=$NEXT_PUBLIC_SENTRY_RELEASE
 COPY tsconfig.base.json turbo.json ./
 COPY packages packages
 COPY apps/web apps/web

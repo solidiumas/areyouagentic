@@ -14,7 +14,14 @@ let clientCache: Anthropic | null = null;
 
 function client(): Anthropic {
   if (clientCache) return clientCache;
-  clientCache = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
+  clientCache = new Anthropic({
+    apiKey: env.ANTHROPIC_API_KEY,
+    // The SDK default (~10 min, 2 retries) outlives the 90s job timeout and
+    // would hold a worker slot hostage on a hung connection. A 400-token
+    // Haiku call finishes in single-digit seconds; 20s is already generous.
+    timeout: 20_000,
+    maxRetries: 1,
+  });
   return clientCache;
 }
 
@@ -102,27 +109,33 @@ export function buildAnalysisUserMessage(summary: AnalyzerSummary): string {
 export async function llmAnalyze(
   summary: AnalyzerSummary,
   log: { warn: (obj: object, msg: string) => void; info: (obj: object, msg: string) => void },
+  signal?: AbortSignal,
 ): Promise<LlmInsight | null> {
   if (!llmConfigured()) return null;
 
   try {
-    const response = await client().messages.create({
-      model: 'claude-haiku-4-5',
-      max_tokens: 400,
-      system: [
-        {
-          type: 'text',
-          text: SYSTEM_PROMPT,
-          cache_control: { type: 'ephemeral' },
-        },
-      ],
-      messages: [
-        {
-          role: 'user',
-          content: buildAnalysisUserMessage(summary),
-        },
-      ],
-    });
+    const response = await client().messages.create(
+      {
+        model: 'claude-haiku-4-5',
+        max_tokens: 400,
+        system: [
+          {
+            type: 'text',
+            text: SYSTEM_PROMPT,
+            cache_control: { type: 'ephemeral' },
+          },
+        ],
+        messages: [
+          {
+            role: 'user',
+            content: buildAnalysisUserMessage(summary),
+          },
+        ],
+      },
+      // Job-deadline abort — cancels the request instead of waiting out the
+      // client-level timeout when the job has already been failed.
+      { signal },
+    );
 
     const usage = response.usage;
     log.info(

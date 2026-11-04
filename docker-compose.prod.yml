@@ -1,7 +1,7 @@
 # docker-compose for end-to-end staging-test on a single host.
-# Not intended for production traffic — production deploys split web → Vercel,
-# api/worker → Railway/Fly.io, db → Neon/Supabase, redis → Upstash, R2 →
-# Cloudflare. This file is for "does the whole thing boot together" testing.
+# Not intended for production traffic — production runs on Azure Container
+# Apps with managed Postgres and Redis (see infra/ and docs/AZURE_OPPSETT.md).
+# This file is for "does the whole thing boot together" testing.
 #
 # Usage:
 #   cp .env.example .env.staging

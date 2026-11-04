@@ -25,7 +25,20 @@ const COOKIE_KEYWORDS = /cookie|consent|gdpr|privacy/i;
 export function detectBlockingCookieBanners(html: string): number {
   const $ = loadHtml(html);
   let count = 0;
-  $('[style], [id], [class], [role="dialog"], [aria-modal="true"]').each((_, el) => {
+  // Candidate set is deliberately narrow: every branch that can count below
+  // requires a dialog role, fixed/sticky positioning, or a z-index in the
+  // inline style — so only elements that can possibly match are visited.
+  // The old `[style], [id], [class]` selector matched essentially the whole
+  // DOM and called $el.text() (a full subtree walk) per element: O(n²) on
+  // the up-to-10MB rendered HTML this runs against.
+  const CANDIDATES = [
+    '[role="dialog"]',
+    '[aria-modal="true"]',
+    '[style*="fixed"]',
+    '[style*="sticky"]',
+    '[style*="z-index"]',
+  ].join(', ');
+  $(CANDIDATES).each((_, el) => {
     const $el = $(el);
     const style = ($el.attr('style') ?? '').toLowerCase();
     const id = ($el.attr('id') ?? '').toLowerCase();

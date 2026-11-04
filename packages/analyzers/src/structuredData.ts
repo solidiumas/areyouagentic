@@ -1,6 +1,7 @@
 import type { Finding } from '@areyouagentic/shared';
 import type { Analyzer, AnalyzerResult } from './types.js';
 import { clampScore, loadHtml, snippet } from './utils/dom.js';
+import { jaccardWords } from './utils/text.js';
 
 export const SD_FINDINGS = {
   MISSING_JSON_LD: 'SD_MISSING_JSON_LD',
@@ -244,11 +245,6 @@ export const structuredDataAnalyzer: Analyzer = (input): AnalyzerResult => {
         "Microdata is a fallback for crawlers that don't parse JSON-LD. Optional if JSON-LD is solid.",
     });
   }
-  // Don't double-penalize: if JSON-LD already covers it, microdata gap is informational.
-  if (jsonLdScore < 20 && microdataCount === 0) {
-    // already added the info finding above; we just don't credit the score
-  }
-
   // ── Canonical ────────────────────────────────────────────────────
   const canonical = $('link[rel="canonical"]').attr('href') ?? null;
   let canonicalScore = 0;
@@ -343,21 +339,3 @@ export const structuredDataAnalyzer: Analyzer = (input): AnalyzerResult => {
     },
   };
 };
-
-function jaccardWords(a: string, b: string): number {
-  const tok = (s: string) =>
-    new Set(
-      s
-        .toLowerCase()
-        .replace(/[^a-z0-9\s]/g, ' ')
-        .split(/\s+/)
-        .filter((w) => w.length > 2),
-    );
-  const A = tok(a);
-  const B = tok(b);
-  if (A.size === 0 && B.size === 0) return 1;
-  let inter = 0;
-  for (const w of A) if (B.has(w)) inter++;
-  const union = new Set([...A, ...B]).size;
-  return union === 0 ? 0 : inter / union;
-}

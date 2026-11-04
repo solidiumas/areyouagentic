@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 /**
  * Normalize a URL for deduplication. Two URLs that resolve to the same page
  * (modulo tracking params, fragment, default port, trailing slash) should
@@ -57,4 +59,17 @@ export function normalizeUrl(input: string | URL): string {
   }
 
   return url.toString();
+}
+
+/**
+ * The value actually persisted as `AnalysisJob.normalizedUrl`. A SHA-256 of
+ * the normalized URL, NOT the plaintext: the stored `url` column is masked
+ * (`maskSensitiveUrl`), and persisting the unmasked normalized form as the
+ * dedup key would quietly undo that redaction for secret-bearing query
+ * params (e.g. `?token=…`). Hashing keeps the equality semantics dedup
+ * needs — distinct tokens still never collapse to one report — while making
+ * the stored key worthless to a reader of the DB or logs.
+ */
+export function urlDedupKey(input: string | URL): string {
+  return createHash('sha256').update(normalizeUrl(input)).digest('hex');
 }

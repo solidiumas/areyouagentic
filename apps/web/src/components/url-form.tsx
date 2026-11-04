@@ -13,7 +13,11 @@ import { rememberDeleteTokenForJob } from '@/lib/delete-token';
 import { urlSchema } from '@areyouagentic/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { TurnstileWidget, TURNSTILE_SITE_KEY } from '@/components/turnstile-widget';
+import {
+  TurnstileWidget,
+  TURNSTILE_SITE_KEY,
+  type TurnstileWidgetHandle,
+} from '@/components/turnstile-widget';
 
 const formSchema = z.object({
   url: urlSchema,
@@ -47,6 +51,7 @@ export function UrlForm() {
   const [serverError, setServerError] = React.useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = React.useState<string | null>(null);
   const handleToken = React.useCallback((token: string | null) => setTurnstileToken(token), []);
+  const turnstileRef = React.useRef<TurnstileWidgetHandle | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
 
   const {
@@ -77,6 +82,12 @@ export function UrlForm() {
       router.push(`/analyzing/${encodeURIComponent(jobId)}`);
     } catch (err) {
       setServerError(errorMessage(err));
+    } finally {
+      // Turnstile tokens are single-use: the server consumed (or rejected) the
+      // token we just sent, so a retry that replays it would fail with a
+      // confusing verification error. Reset after *every* attempt — the widget
+      // clears the stored token and mints a fresh one in the background.
+      turnstileRef.current?.reset();
     }
   });
 
@@ -144,7 +155,7 @@ export function UrlForm() {
         ) : null}
       </div>
 
-      <TurnstileWidget onToken={handleToken} />
+      <TurnstileWidget ref={turnstileRef} onToken={handleToken} />
 
       <ul className="mt-4 flex flex-wrap gap-2" aria-label="Example URLs">
         {EXAMPLES.map((ex) => (

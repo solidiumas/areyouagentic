@@ -7,6 +7,12 @@ import { env } from './env.js';
 // edit on the producer side.
 export const ANALYSIS_QUEUE_NAME = 'analysis';
 
+// Every BullMQ key lives under one hash tag so a queue's keys land in the same
+// cluster slot. Azure Managed Redis shards data behind a single endpoint, and
+// BullMQ's multi-key Lua scripts fail with CROSSSLOT when keys span slots.
+// Changing this orphans jobs already queued under the old prefix.
+export const QUEUE_PREFIX = '{bull}';
+
 export type AnalysisJobPayload = {
   jobId: string;
   url: string;
@@ -15,6 +21,18 @@ export type AnalysisJobPayload = {
   // jobs enqueued before the field was introduced.
   requestId?: string;
 };
+
+/**
+ * Payload for a `cleanup-screenshots` job (job name distinguishes it from
+ * `analyze` on the shared queue). Enqueued by the API when a user deletes a
+ * report — the API holds no R2 credentials, so object deletion happens here.
+ */
+export type CleanupScreenshotsPayload = {
+  screenshotKeys: string[];
+  requestId?: string;
+};
+
+export type QueueJobPayload = AnalysisJobPayload | CleanupScreenshotsPayload;
 
 /**
  * Creates an ioredis connection configured for BullMQ. BullMQ requires

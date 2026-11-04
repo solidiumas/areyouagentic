@@ -24,6 +24,9 @@ export async function siteverify(
   secret: string,
   token: string,
   remoteIp?: string,
+  /** When set, a successful token is also required to have been solved on
+   * this hostname (Cloudflare echoes it back). */
+  expectedHostname?: string,
 ): Promise<boolean> {
   const body = new URLSearchParams({ secret, response: token });
   if (remoteIp) body.set('remoteip', remoteIp);
@@ -36,8 +39,13 @@ export async function siteverify(
       signal: AbortSignal.timeout(5_000),
     });
     if (!res.ok) return false;
-    const data = (await res.json()) as { success?: boolean };
-    return data.success === true;
+    const data = (await res.json()) as { success?: boolean; hostname?: string };
+    if (data.success !== true) return false;
+    // Bind the token to OUR site: siteverify reports which hostname the
+    // challenge was solved on, so a token minted on another site (shared or
+    // leaked sitekey) doesn't pass here.
+    if (expectedHostname && data.hostname && data.hostname !== expectedHostname) return false;
+    return true;
   } catch {
     // Network error / timeout → fail closed while the gate is enabled.
     return false;
@@ -51,5 +59,5 @@ export async function siteverify(
 export async function verifyTurnstileToken(token: string, remoteIp?: string): Promise<boolean> {
   if (!env.TURNSTILE_SECRET_KEY) return true;
   if (!token) return false;
-  return siteverify(env.TURNSTILE_SECRET_KEY, token, remoteIp);
+  return siteverify(env.TURNSTILE_SECRET_KEY, token, remoteIp, new URL(env.APP_URL).hostname);
 }

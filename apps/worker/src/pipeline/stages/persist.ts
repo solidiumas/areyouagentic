@@ -3,7 +3,10 @@ import { Prisma, prisma } from '@areyouagentic/db';
 import type { PrismaTypes } from '@areyouagentic/db';
 import type { AnalyzerResult } from '@areyouagentic/analyzers';
 import {
+  evidenceSchema,
+  findingsSchema,
   maskSensitiveUrl,
+  recommendationsSchema,
   type Dimension,
   type EvidenceItem,
   type Finding,
@@ -44,7 +47,10 @@ export const persistStage: Stage = async (ctx: AnalysisContext) => {
 
   if (ctx.screenshotBytes) {
     try {
-      const key = `screenshots/${ctx.jobId}.png`;
+      // Random key, NOT the job id: job ids are v1 cuids (timestamp+counter,
+      // semi-guessable) and the bucket is public — the object key must be as
+      // unguessable as the report id that gates access to it.
+      const key = `screenshots/${randomUUID()}.png`;
       const result = await uploadScreenshot(key, ctx.screenshotBytes);
       if ('url' in result) screenshotUrl = result.url;
       else ctx.log.info('persist: R2 not configured — skipping screenshot upload');
@@ -97,28 +103,42 @@ export const persistStage: Stage = async (ctx: AnalysisContext) => {
     });
   }
 
-  await prisma.report.create({
-    data: {
-      jobId: ctx.jobId,
-      overallScore: ctx.scores.overall,
-      grade: ctx.scores.grade,
-      machineReadabilityScore: ctx.scores.machineReadability,
-      structuredDataScore: ctx.scores.structuredData,
-      agentSignalsScore: ctx.scores.agentSignals,
-      actionabilityScore: ctx.scores.actionability,
-      performanceScore: ctx.scores.performance,
-      contentClarityScore: ctx.scores.contentClarity,
-      findings: flatFindings as unknown as PrismaTypes.InputJsonValue,
-      recommendations: recommendations as unknown as PrismaTypes.InputJsonValue,
-      evidence: evidence as unknown as PrismaTypes.InputJsonValue,
-      pageTitle: ctx.pageTitle ?? null,
-      // Report is public — redact secret-bearing query params before storing.
-      finalUrl: maskSensitiveUrl(ctx.finalUrl ?? ctx.url),
-      llmVerdict: ctx.llmInsight?.verdict ?? null,
-      llmQuickWins: ctx.llmInsight
-        ? (ctx.llmInsight.quickWins as unknown as PrismaTypes.InputJsonValue)
-        : Prisma.JsonNull,
-    },
+  // Validate-on-write, per the schema contract (schema.prisma header): the
+  // read path (`parseReport`) Zod-parses these columns on every fetch, so a
+  // malformed analyzer payload written here would surface as a 500 for every
+  // reader of the report. Fail the job at the source instead.
+  const validatedFindings = findingsSchema.parse(flatFindings);
+  const validatedRecommendations = recommendationsSchema.parse(recommendations);
+  const validatedEvidence = evidenceSchema.parse(evidence);
+
+  const reportData = {
+    overallScore: ctx.scores.overall,
+    grade: ctx.scores.grade,
+    machineReadabilityScore: ctx.scores.machineReadability,
+    structuredDataScore: ctx.scores.structuredData,
+    agentSignalsScore: ctx.scores.agentSignals,
+    actionabilityScore: ctx.scores.actionability,
+    performanceScore: ctx.scores.performance,
+    contentClarityScore: ctx.scores.contentClarity,
+    findings: validatedFindings as unknown as PrismaTypes.InputJsonValue,
+    recommendations: validatedRecommendations as unknown as PrismaTypes.InputJsonValue,
+    evidence: validatedEvidence as unknown as PrismaTypes.InputJsonValue,
+    pageTitle: ctx.pageTitle ?? null,
+    // Report is public — redact secret-bearing query params before storing.
+    finalUrl: maskSensitiveUrl(ctx.finalUrl ?? ctx.url),
+    llmVerdict: ctx.llmInsight?.verdict ?? null,
+    llmQuickWins: ctx.llmInsight
+      ? (ctx.llmInsight.quickWins as unknown as PrismaTypes.InputJsonValue)
+      : Prisma.JsonNull,
+  };
+
+  // Upsert, not create: BullMQ delivers at-least-once (attempts: 3), so a
+  // retry after a crash between this write and the COMPLETED status update
+  // must overwrite the existing row instead of failing on the unique jobId.
+  await prisma.report.upsert({
+    where: { jobId: ctx.jobId },
+    create: { jobId: ctx.jobId, ...reportData },
+    update: reportData,
   });
 
   ctx.log.info(

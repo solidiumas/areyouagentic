@@ -1,7 +1,9 @@
 import { parseReport, prisma } from '@areyouagentic/db';
+import { extractScreenshotKeys } from '@areyouagentic/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { verifyDeleteToken } from '../lib/deleteToken.js';
+import { enqueueScreenshotCleanup } from '../lib/queue.js';
 import { HttpError } from '../plugins/errorHandler.js';
 
 // Report ids are cuid2 (`@default(cuid(2))`) — lowercase alphanumeric, first
@@ -77,7 +79,7 @@ export async function reportsRoutes(app: FastifyInstance): Promise<void> {
 
       const row = await prisma.report.findUnique({
         where: { id: params.data.id },
-        select: { jobId: true, job: { select: { deleteTokenHash: true } } },
+        select: { jobId: true, evidence: true, job: { select: { deleteTokenHash: true } } },
       });
       if (!row) {
         throw new HttpError(404, 'NOT_FOUND', 'Report not found');
@@ -89,9 +91,28 @@ export async function reportsRoutes(app: FastifyInstance): Promise<void> {
         throw new HttpError(403, 'DELETE_FORBIDDEN', 'Invalid delete token');
       }
 
+      // Capture the R2 screenshot keys BEFORE the cascade wipes the evidence
+      // — "delete my report" must also remove the (public) screenshot object.
+      const screenshotKeys = extractScreenshotKeys(row.evidence);
+
       // Deleting the job cascades to the report (FK onDelete: Cascade).
       await prisma.analysisJob.delete({ where: { id: row.jobId } });
       req.log.info({ reportId: params.data.id, jobId: row.jobId }, 'Report deleted by token');
+
+      // The worker owns the R2 credentials, so object deletion goes through
+      // the queue. Best-effort: the user's rows are already gone, so a queue
+      // hiccup must not turn the 204 into an error — but log the orphaned
+      // keys loudly so they can be cleaned up by hand.
+      if (screenshotKeys.length > 0) {
+        try {
+          await enqueueScreenshotCleanup({ screenshotKeys, requestId: req.id });
+        } catch (err) {
+          req.log.error(
+            { err, orphanedKeys: screenshotKeys },
+            'Screenshot cleanup enqueue failed — R2 objects orphaned',
+          );
+        }
+      }
 
       return reply.code(204).send();
     },

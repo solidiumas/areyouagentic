@@ -29,7 +29,17 @@ export const renderStage: Stage = async (ctx: AnalysisContext): Promise<Analysis
     throw new PermanentJobError(BLOCKED_TARGET_MESSAGE);
   }
 
+  // Honor the job deadline: closing the browser makes every in-flight
+  // Playwright call reject, which is the only way to actually interrupt a
+  // navigation — Playwright takes no AbortSignal. Checked before launch too
+  // so an already-expired job doesn't pay a Chromium cold start.
+  if (ctx.signal?.aborted) throw new Error('render: aborted by job deadline');
+
   const browser: Browser = await chromium.launch({ headless: true });
+  const onAbort = (): void => {
+    void browser.close().catch(() => {});
+  };
+  ctx.signal?.addEventListener('abort', onAbort, { once: true });
   try {
     const context: BrowserContext = await browser.newContext({
       userAgent: USER_AGENT,
@@ -70,7 +80,25 @@ export const renderStage: Stage = async (ctx: AnalysisContext): Promise<Analysis
 
     const renderedHtml = await page.content();
 
-    const screenshotBytes = (await page.screenshot({ fullPage: true, type: 'png' })) as Buffer;
+    // Cap the capture height: fullPage on a pathologically tall page (infinite
+    // scroll, huge DOM) produces a multi-hundred-MB PNG held in memory ×
+    // WORKER_CONCURRENCY, and an equally bloated R2 object. 5× the viewport
+    // is plenty for the report's visual evidence.
+    const MAX_SCREENSHOT_HEIGHT = 4_000;
+    const pageHeight = await page.evaluate(
+      // No DOM lib in the worker tsconfig — this runs in the page, not Node.
+      () =>
+        (globalThis as unknown as { document: { documentElement: { scrollHeight: number } } })
+          .document.documentElement.scrollHeight,
+    );
+    const screenshotBytes = (
+      pageHeight > MAX_SCREENSHOT_HEIGHT
+        ? await page.screenshot({
+            type: 'png',
+            clip: { x: 0, y: 0, width: 1280, height: MAX_SCREENSHOT_HEIGHT },
+          })
+        : await page.screenshot({ fullPage: true, type: 'png' })
+    ) as Buffer;
 
     const performanceMetrics = {
       ttfb: timing.ttfb,
@@ -92,6 +120,7 @@ export const renderStage: Stage = async (ctx: AnalysisContext): Promise<Analysis
       performanceMetrics,
     };
   } finally {
+    ctx.signal?.removeEventListener('abort', onAbort);
     await browser.close();
   }
 };

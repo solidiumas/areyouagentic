@@ -8,6 +8,7 @@ import { JobStatus, prisma } from '@areyouagentic/db';
 import { Queue } from 'bullmq';
 import {
   ANALYSIS_QUEUE_NAME,
+  QUEUE_PREFIX,
   type AnalysisJobPayload,
   createRedisConnection,
 } from '../lib/queue.js';
@@ -18,6 +19,7 @@ const url = process.argv[2] ?? 'https://example.com';
 async function main(): Promise<void> {
   const queue = new Queue<AnalysisJobPayload>(ANALYSIS_QUEUE_NAME, {
     connection: createRedisConnection(),
+    prefix: QUEUE_PREFIX,
   });
   const handle = createAnalysisWorker();
   await handle.worker.waitUntilReady();

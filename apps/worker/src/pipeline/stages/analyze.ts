@@ -125,6 +125,7 @@ export const analyzeStage: Stage = async (ctx: AnalysisContext) => {
         hasSitemap: Boolean(ctx.sitemapXml),
       },
       ctx.log,
+      ctx.signal,
     );
   } else {
     ctx.log.info('llm not configured — skipping narrative');
