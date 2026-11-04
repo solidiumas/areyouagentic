@@ -2,7 +2,7 @@
  * Structured JSON logger for the Next.js app. The Node runtime could use
  * pino, but Next.js code also runs in the Edge runtime (middleware) where
  * pino's worker-thread transport doesn't load. A plain `console.log(JSON)`
- * works in both, and our log pipeline (Vercel / Datadog / Loki) only cares
+ * works in both, and our log pipeline (Azure Log Analytics) only cares
  * about the JSON shape, not who wrote it.
  *
  * Levels mirror pino's: trace=10, debug=20, info=30, warn=40, error=50, fatal=60.

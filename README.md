@@ -138,22 +138,24 @@ pnpm --filter @areyouagentic/api build
 
 ## Docker
 
-Three Dockerfiles, each a multi-stage build that copies a self-contained
+Three app Dockerfiles, each a multi-stage build that copies a self-contained
 `pnpm deploy` tree into a minimal runtime image, runs as a non-root user,
-and ships a `HEALTHCHECK`:
+and ships a `HEALTHCHECK`. A fourth, `packages/db/Dockerfile`, is the
+one-shot migration image (Prisma CLI + migrations) — the runtime images
+deliberately don't include the CLI:
 
 | App      | Base image                                                     | Approx size |
 | -------- | -------------------------------------------------------------- | ----------- |
 | `web`    | `node:20-alpine` (Next.js standalone)                          | ~150 MB     |
 | `api`    | `node:20-alpine` + prisma engines                              | ~200 MB     |
-| `worker` | `mcr.microsoft.com/playwright:v1.48.2-jammy` (Chromium + Node) | ~1.6 GB     |
+| `worker` | `mcr.microsoft.com/playwright:v1.55.1-jammy` (Chromium + Node) | ~1.6 GB     |
 
 Build the whole stack locally:
 
 ```bash
 docker compose -f docker-compose.prod.yml --env-file .env.staging up -d --build
-docker compose -f docker-compose.prod.yml exec api \
-  pnpm --filter @areyouagentic/db prisma migrate deploy
+docker build -f packages/db/Dockerfile -t areyouagentic-migrate .
+docker run --rm --network host -e DATABASE_URL="$DATABASE_URL" areyouagentic-migrate
 ```
 
 Or build one image at a time, **from the monorepo root**:
@@ -161,45 +163,39 @@ Or build one image at a time, **from the monorepo root**:
 ```bash
 docker build -f apps/api/Dockerfile    -t areyouagentic-api    .
 docker build -f apps/worker/Dockerfile -t areyouagentic-worker .
-docker build -f apps/web/Dockerfile    -t areyouagentic-web    .
+docker build -f apps/web/Dockerfile    -t areyouagentic-web    \
+  --build-arg NEXT_PUBLIC_API_URL=https://api.example.com .
+docker build -f packages/db/Dockerfile -t areyouagentic-migrate .
 ```
 
 ## CI / CD
 
-| Workflow                                         | Trigger                          | Job                                                                   |
-| ------------------------------------------------ | -------------------------------- | --------------------------------------------------------------------- |
-| [`ci.yml`](.github/workflows/ci.yml)             | push & PR to `main`              | lint / typecheck / build / test, plus Docker build for all three apps |
-| [`deploy.yml`](.github/workflows/deploy.yml)     | manual (`workflow_dispatch`)     | bump root version, tag, push images to GHCR, cut a GitHub release     |
-| [`security.yml`](.github/workflows/security.yml) | weekly cron + PR (path-filtered) | `pnpm audit --prod` + CodeQL (security-extended)                      |
+| Workflow                                         | Trigger                          | Job                                                                                     |
+| ------------------------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------- |
+| [`ci.yml`](.github/workflows/ci.yml)             | push & PR to `main`              | lint / typecheck / build / test, migration drift, web E2E, Docker build for every image |
+| [`deploy.yml`](.github/workflows/deploy.yml)     | manual (`workflow_dispatch`)     | deploy `main` to Azure: infra, images, migrations, apps, smoke check                    |
+| [`security.yml`](.github/workflows/security.yml) | weekly cron + PR (path-filtered) | `pnpm audit --prod` + CodeQL (security-extended)                                        |
 
-## Deploy targets
+## Hosting
 
-We split responsibilities so each piece runs where it fits best. None of
-this is wired up automatically — the **Deploy** workflow only publishes
-images and tags. Pointing platforms at those tags is one-time setup.
+Production runs on **Azure**, defined as Bicep in [`infra/`](infra):
 
-| Component | Recommended                                                | Alternative                                |
-| --------- | ---------------------------------------------------------- | ------------------------------------------ |
-| Web       | **Vercel** (auto-deploys on tag)                           | Self-host via `apps/web/Dockerfile`        |
-| API       | **Railway** or **Fly.io**                                  | Any container host                         |
-| Worker    | **Railway** or **Fly.io** with autoscaling (≥ 2 instances) | Any container host with Playwright support |
-| Database  | **Neon** (point-in-time recovery)                          | **Supabase**, self-hosted Postgres 16      |
-| Redis     | **Upstash** (TLS-only, AOF on)                             | Self-hosted Redis 7                        |
-| Storage   | **Cloudflare R2** (S3-compatible)                          | Any S3-compatible bucket                   |
+| Component  | Azure service                                                |
+| ---------- | ------------------------------------------------------------ |
+| Web, API   | Container Apps (public HTTPS ingress)                        |
+| Worker     | Container Apps (no ingress, Playwright image)                |
+| Migrations | Container Apps job, run by every deploy                      |
+| Retention  | Container Apps job, daily                                    |
+| Database   | Database for PostgreSQL Flexible Server 16 (VNet only, PITR) |
+| Redis      | Azure Managed Redis (VNet only, TLS, noeviction)             |
+| Images     | Container Registry                                           |
+| Logs       | Log Analytics                                                |
+| Storage    | not enabled yet (`apps/worker/src/lib/r2.ts` targets R2)     |
 
-### Backups
-
-- **Postgres:** provider snapshots run daily; retention ≥ 7 days. PITR on.
-- **R2:** bucket versioning enabled, lifecycle deletes non-current
-  versions after 30 days. Cross-region replication is not enabled — the
-  artifacts are reproducible by re-running the analyzer.
-- **Redis:** AOF persistence is on but BullMQ state is ephemeral by design.
-  Treat Redis loss as a queue reset, not data loss.
-
-See [`docs/RUNBOOK.md`](docs/RUNBOOK.md) for the full operational manual,
-[`docs/DEPLOYMENT_CHECKLIST.md`](docs/DEPLOYMENT_CHECKLIST.md) for the
-pre-flight checklist, and [`SECURITY.md`](SECURITY.md) for the security
-posture and how to report a vulnerability.
+First-time setup: [`docs/AZURE_OPPSETT.md`](docs/AZURE_OPPSETT.md).
+Operations, rollback and backups: [`docs/RUNBOOK.md`](docs/RUNBOOK.md).
+Pre-flight checklist: [`docs/DEPLOYMENT_CHECKLIST.md`](docs/DEPLOYMENT_CHECKLIST.md).
+Security posture and how to report a vulnerability: [`SECURITY.md`](SECURITY.md).
 
 ## Load testing
 

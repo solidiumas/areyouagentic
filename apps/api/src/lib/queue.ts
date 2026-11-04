@@ -5,6 +5,12 @@ import { withTimeout } from './withTimeout.js';
 
 export const ANALYSIS_QUEUE_NAME = 'analysis';
 
+// Every BullMQ key lives under one hash tag so a queue's keys land in the same
+// cluster slot. Azure Managed Redis shards data behind a single endpoint, and
+// BullMQ's multi-key Lua scripts fail with CROSSSLOT when keys span slots.
+// Changing this orphans jobs already queued under the old prefix.
+export const QUEUE_PREFIX = '{bull}';
+
 export type AnalysisJobPayload = {
   jobId: string;
   url: string;
@@ -53,6 +59,7 @@ export function getAnalysisQueue(): Queue<QueueJobPayload> {
     queueConnection = createRedisConnection();
     queueSingleton = new Queue<QueueJobPayload>(ANALYSIS_QUEUE_NAME, {
       connection: queueConnection,
+      prefix: QUEUE_PREFIX,
       defaultJobOptions: DEFAULT_JOB_OPTIONS,
     });
   }

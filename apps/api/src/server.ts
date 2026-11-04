@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { env } from './lib/env.js';
 import { loggerOptions } from './lib/logger.js';
 import { registerGlobalRateLimit } from './lib/rateLimiter.js';
 import { registerCors } from './plugins/cors.js';
@@ -21,11 +22,13 @@ export async function buildServer(): Promise<FastifyInstance> {
     logger: loggerOptions,
     // 10kb default body limit (overridable per-route). We only ever take URLs.
     bodyLimit: 10 * 1024,
-    // Trust exactly ONE proxy hop (Railway's edge). `true` would trust the
-    // whole x-forwarded-for chain, letting any client spoof its IP with a
-    // forged header and rotate past every per-IP rate limit. With `1`, the
-    // rightmost XFF entry — appended by Railway itself — wins.
-    trustProxy: 1,
+    // Trust X-Forwarded-For only from the proxies in TRUST_PROXY (the
+    // ingress). The client IP is then the rightmost XFF entry that isn't one
+    // of them, so a forged header can't move a client to another rate-limit
+    // bucket. Fastify 5.12+ ignores hop counts (`trustProxy: 1` trusts
+    // nobody), so this has to be an address list. A CDN or Front Door in
+    // front of the ingress needs its ranges added here.
+    trustProxy: env.TRUST_PROXY ?? false,
     disableRequestLogging: false,
     // Use the inbound x-request-id when present, otherwise mint a UUIDv4 so
     // every log line and response carries a correlation id.

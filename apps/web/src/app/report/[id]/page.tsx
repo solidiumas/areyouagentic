@@ -101,7 +101,7 @@ export default async function ReportPage({ params }: { params: Promise<{ id: str
           <span aria-hidden>·</span>
           {/* Client component: localizes to the viewer's timezone, not the
               server region's (this is a server component, so toLocaleString()
-              here would render in the Vercel region's timezone). */}
+              here would render in the server region's timezone). */}
           <LocalTime iso={report.createdAt.toISOString()} />
         </div>
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">

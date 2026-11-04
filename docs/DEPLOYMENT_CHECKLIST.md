@@ -1,25 +1,33 @@
 # Deployment checklist
 
-This reflects the **actual beta deployment** of areyouagentic.com, not the
-original aspirational plan. Items checked (`[x]`) were completed during the
-beta launch; unchecked items are still open or deferred.
+Pre-flight and post-flight checks for the **Azure** deployment of
+areyouagentic.com. The beta ran on Railway + Vercel until November 2026;
+those are disconnected, and this list starts fresh for Azure. Check items
+off (`[x]`) as they are verified against the live environment, not just
+merged in code.
 
-## Live beta architecture
+Step-by-step first-time setup: [`AZURE_OPPSETT.md`](AZURE_OPPSETT.md).
+Day-to-day operations: [`RUNBOOK.md`](RUNBOOK.md).
 
-| Component                          | Platform              | URL                                          |
-| ---------------------------------- | --------------------- | -------------------------------------------- |
-| Web (Next.js)                      | **Vercel**            | `https://areyouagentic.vercel.app`           |
-| API (Fastify)                      | **Railway** (Docker)  | `https://api-production-6eca.up.railway.app` |
-| Worker (BullMQ + Playwright + LLM) | **Railway** (Docker)  | internal                                     |
-| Postgres                           | **Railway** managed   | internal `${{Postgres.DATABASE_URL}}`        |
-| Redis                              | **Railway** managed   | internal `${{Redis.REDIS_URL}}`              |
-| Artifacts (R2)                     | **deferred** for beta | —                                            |
+## Architecture
 
-Deploys are GitHub-driven: pushing to `main` rebuilds the Railway services
-(from each app's Dockerfile) and the Vercel project. There is no GHCR /
-tag-based Deploy workflow in the beta.
+| Component                          | Azure resource                               | Reachable from           |
+| ---------------------------------- | -------------------------------------------- | ------------------------ |
+| Web (Next.js)                      | Container App `aya-prod-web`                 | internet (HTTPS)         |
+| API (Fastify)                      | Container App `aya-prod-api`                 | internet (HTTPS)         |
+| Worker (BullMQ + Playwright + LLM) | Container App `aya-prod-worker`              | no ingress               |
+| Migrations                         | Container Apps job `aya-prod-migrate`        | started by Deploy        |
+| Retention                          | Container Apps job `aya-prod-retention`      | daily 03:00 UTC          |
+| Postgres 16                        | Database for PostgreSQL Flexible Server      | VNet only (delegated)    |
+| Redis                              | Azure Managed Redis (TLS :10000, noeviction) | VNet only (private link) |
+| Images                             | Azure Container Registry (Basic)             | apps pull via managed id |
+| Logs                               | Log Analytics `aya-prod-logs`                | portal                   |
+| Artifacts (R2)                     | **not enabled**                              | —                        |
 
-> **Lessons already baked into the Dockerfiles / config — don't regress these:**
+Deploys run only from the manual **Deploy** workflow — merging to `main`
+deploys nothing.
+
+> **Lessons baked into the Dockerfiles / config — don't regress these:**
 >
 > 1. `pnpm deploy --prod` ships an _un-generated_ Prisma client stub. Each
 >    backend Dockerfile copies the build-stage's generated client over the
@@ -31,150 +39,149 @@ tag-based Deploy workflow in the beta.
 >    (`import pkg from '@prisma/client'`) because the package is CommonJS and
 >    breaks ESM named re-exports.
 > 4. API CORS allows exactly `env.APP_URL` in prod. It **must** be a full
->    `https://…` origin (Zod validates it as a URL; a bare host crashes the
->    API on boot) and must match the browser origin exactly.
+>    `https://…` origin and must match the browser origin exactly.
 > 5. Workspace libraries (`shared`, `db`, `analyzers`) build to `dist/` and
 >    are imported as JS at runtime — they are no longer consumed as `.ts`.
+> 6. `NEXT_PUBLIC_*` are web **build args**; the web image is tied to the
+>    URLs it was built with.
+> 7. BullMQ keys use the `{bull}` hash-tag prefix on both sides (Azure
+>    Managed Redis shards keys; multi-key Lua scripts need one slot).
+> 8. `.dockerignore` excludes `**/*.tsbuildinfo`: a stale incremental-build
+>    file next to an excluded `dist/` makes `tsc` emit nothing.
 
 ## 1. Code & tests
 
-- [x] `main` green on **CI** (lint, typecheck, build, test, Docker image
-      builds for all three apps).
-- [x] `pnpm audit` clean (rollup advisory pinned via `pnpm.overrides`).
-- [x] CodeQL clean on `main`.
+- [ ] `main` green on **CI** (lint, typecheck, build, test, migration
+      drift, web E2E, Docker builds for web/api/worker/migrate).
+- [ ] `pnpm audit --prod --audit-level=high` clean (Security workflow).
+- [ ] CodeQL clean on `main`.
 - [ ] No leftover `TODO: prod` / `// remove before launch`:
 
       ```bash
       git grep -nE 'TODO:.*prod|remove before launch'
       ```
 
-- [x] `.env.example` lists every variable production reads.
+## 2. One-time Azure + GitHub setup
 
-## 2. Secrets
+See `AZURE_OPPSETT.md` for the how.
 
-Set in the platform's variable manager (Railway per-service, Vercel project).
+- [ ] Resource group created in the chosen region (Norway East).
+- [ ] Resource providers registered: `Microsoft.App`,
+      `Microsoft.ContainerRegistry`, `Microsoft.DBforPostgreSQL`,
+      `Microsoft.Cache`, `Microsoft.Network`, `Microsoft.OperationalInsights`,
+      `Microsoft.ManagedIdentity`.
+- [ ] Entra app registration for GitHub Actions with a federated
+      credential for `repo:solidiumas/areyouagentic:environment:production`.
+- [ ] That app has **Contributor** and **Role Based Access Control
+      Administrator** on the resource group (the latter so `main.bicep` can
+      grant the apps `AcrPull`).
+- [ ] GitHub environment `production` exists, with the variables and
+      secrets listed in `.github/workflows/deploy.yml`.
 
-- [x] `DATABASE_URL` — Railway: `${{Postgres.DATABASE_URL}}` (api + worker)
-- [x] `REDIS_URL` — Railway: `${{Redis.REDIS_URL}}` (api + worker)
-- [x] `ANTHROPIC_API_KEY` — worker only (optional; LLM step skips if absent)
-- [x] `APP_URL = https://areyouagentic.vercel.app` — api (CORS origin)
-- [x] `NEXT_PUBLIC_API_URL = https://api-production-6eca.up.railway.app` —
-      Vercel (baked in at build time → redeploy web after changing)
-- [ ] `SESSION_SECRET`, `JWT_SECRET` — **removed from the codebase** (no code
-      ever read them). Delete the values from the Railway api service; the
-      no-account Stripe model doesn't need sessions either.
-- [x] `METRICS_USERNAME`, `METRICS_PASSWORD` — api
-- [ ] `SENTRY_DSN` (server) / `NEXT_PUBLIC_SENTRY_DSN` (client) +
-      `SENTRY_ENVIRONMENT=production` — **deferred** (wire before wide launch)
-- [ ] R2 (`R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
-      `R2_BUCKET`, `R2_PUBLIC_URL`) — **deferred**; persist skips screenshot
-      upload when unset
-- [x] No secret values committed in the repo:
+## 3. Secrets
+
+All live on the GitHub `production` environment and are written into
+per-app Container Apps secrets on every deploy.
+
+- [ ] `POSTGRES_ADMIN_PASSWORD` — required, ≥16 chars, generated
+      (`openssl rand -base64 32`). Used by main.bicep (server) and
+      apps.bicep (`DATABASE_URL`).
+- [ ] `ANTHROPIC_API_KEY` — **worker only** (optional; LLM step skips if
+      absent).
+- [ ] `METRICS_PASSWORD` + variable `METRICS_USERNAME` — api.
+- [ ] `TURNSTILE_SECRET_KEY` + variable `NEXT_PUBLIC_TURNSTILE_SITE_KEY` —
+      set both or neither.
+- [ ] `SENTRY_DSN` + variable `NEXT_PUBLIC_SENTRY_DSN` — optional.
+- [ ] R2 — **not enabled**; persist skips screenshot upload when unset.
+- [ ] No secret values committed in the repo:
 
       ```bash
       git grep -nE 'sk-[a-zA-Z0-9_-]{20,}|aws_secret|service-role'
       ```
 
-- [x] Postgres password rotated after it was exposed during setup (Railway
-      Postgres → Config → Regenerate password; api + worker redeployed).
+## 4. First deploy
 
-## 3. Infrastructure
-
-- [x] **Postgres (Railway):** managed instance provisioned; schema applied
-      with `prisma db push` against `DATABASE_PUBLIC_URL`.
-  - [ ] Confirm Railway backups/retention policy for the DB plan in use.
-  - [x] Move from `db push` to `prisma migrate deploy`: the init migration
-        (`packages/db/prisma/migrations/0_init/`) is committed and the
-        **Migrate** workflow (`.github/workflows/migrate.yml`) applies new
-        migrations on push to `main`. Two one-time setup steps remain: - [ ] Add repo secret `PROD_DATABASE_URL` (Railway → Postgres →
-        `DATABASE_PUBLIC_URL`) in GitHub → Settings → Secrets → Actions. - [ ] Baseline the existing beta DB (it predates the migration
-        history): `DATABASE_URL=<DATABASE_PUBLIC_URL> pnpm --filter
-@areyouagentic/db exec prisma migrate resolve --applied 0_init`
-- [x] **Redis (Railway):** managed instance provisioned; reachable from api
-      and worker (`/health` reports `redis: ok`).
-- [ ] **R2 (Cloudflare):** deferred for beta (no screenshots in reports yet).
-- [ ] **DNS:** deferred — beta runs on `*.vercel.app` / `*.up.railway.app`.
-      For the custom domain later:
-  - `areyouagentic.com` → Vercel; update `NEXT_PUBLIC_API_URL` if the API
-    also moves to `api.areyouagentic.com`, and update API `APP_URL` to the
-    new web origin (CORS).
-
-## 4. Deploy
-
-- [x] Push to `main` → Railway rebuilds api + worker from their Dockerfiles.
-- [x] Push to `main` → Vercel rebuilds web (root dir `apps/web`,
-      `vercel.json` drives install + `turbo` build).
-- [x] **API:** `curl https://api-production-6eca.up.railway.app/health`
-      returns `{"status":"ok","checks":{"database":"ok","redis":"ok"}}`.
-- [x] **Worker:** Railway shows the service online; it drains the queue
-      (verified by the smoke test below reaching COMPLETED).
+- [ ] **Deploy** workflow run on `main` completes all steps.
+- [ ] Migrate job execution _Succeeded_ (`0_init` applied to the empty DB).
+- [ ] API: `curl <api-url>/health` →
+      `{"status":"ok","checks":{"database":"ok","redis":"ok"}}`.
+- [ ] Worker revision _Healthy_ (readiness `/ready` on `:4001`).
+- [ ] Retention job present with schedule `0 3 * * *`; one manual run
+      (`az containerapp job start … aya-prod-retention`) succeeds.
 
 ## 5. Smoke test
 
-- [x] `POST /api/analyze {"url":"https://example.com"}` → 202 + `jobId`.
-- [x] `GET /api/jobs/<jobId>` → PENDING → … → COMPLETED.
-- [x] `GET /api/reports/<reportId>` → non-zero score (example.com: 51/100,
-      grade D, 13 findings) **with a real LLM verdict + quick-wins**.
-- [x] Frontend at `areyouagentic.vercel.app` accepts a URL and renders the
-      report (manually verified in-browser).
+- [ ] `POST /api/analyze {"url":"https://example.com"}` → 202 + `jobId`.
+- [ ] `GET /api/jobs/<jobId>` → PENDING → … → COMPLETED.
+- [ ] `GET /api/reports/<reportId>` → non-zero score, with an LLM verdict
+      if `ANTHROPIC_API_KEY` is set.
+- [ ] Frontend accepts a URL and renders the report (in a browser).
+- [ ] Rate limiting: the 6th `POST /api/analyze` within a minute from one
+      IP returns **429** with `RATE_LIMITED`.
+- [ ] `TRUST_PROXY` (the apps subnet, set by `infra/apps.bicep`) matches
+      the ingress: the API's request logs show the real client IP, not a
+      `10.40.x.x` address. If they show an internal IP, the ingress connects
+      from outside the subnet and every user shares one rate-limit bucket —
+      add the address it uses to `TRUST_PROXY`.
 - [ ] Trigger a deliberate error and confirm Sentry capture + PII redaction
-      — **pending Sentry wiring**.
+      (once Sentry is wired).
 
-## 6. Observability
+## 6. Custom domain
 
-- [x] `/api/metrics` reachable with basic auth (`METRICS_USERNAME/PASSWORD`).
-- [ ] Sentry receiving events from web, api, worker (tagged by `app`) —
-      **pending**.
-- [x] Railway / Vercel logs show structured JSON (pino), not pretty-print.
-- [ ] Confirm request-id propagates web → api → worker (search one id across
-      all three log sources).
+- [ ] `areyouagentic.com` → `aya-prod-web`, `api.areyouagentic.com` →
+      `aya-prod-api` (DNS records + managed certificates, see
+      `AZURE_OPPSETT.md`).
+- [ ] Variables `APP_PUBLIC_URL=https://areyouagentic.com` and
+      `API_PUBLIC_URL=https://api.areyouagentic.com` set, then **Deploy**
+      re-run (rebuilds web, updates API CORS).
+- [ ] Old default hostnames no longer used by the browser (check the CSP
+      `connect-src` on the live site).
 
-## 7. Rate limiting & abuse
+## 7. Observability
 
-- [x] `POST /api/analyze` enforces 5/min + 20/day per IP (code-reviewed;
-      the CI integration test is skipped on CI but runs locally).
-- [x] Global API rate limit 30/min per IP.
-- [ ] Re-verify SSRF guard against the live API: `http://169.254.169.254/`,
-      `http://localhost/`, `file:///etc/passwd` are all rejected.
-- [ ] Verify network-layer egress blocking on the **worker** host (deny
-      169.254.169.254, RFC1918, loopback): the in-process SSRF guards can't
-      fully close the DNS-rebinding TOCTOU window — SECURITY.md names this
-      firewall as the required backstop. Check what Railway private
-      networking actually blocks and document the result here.
-- [ ] Enable Turnstile in production (`TURNSTILE_SECRET_KEY` on the api,
-      `NEXT_PUBLIC_TURNSTILE_SITE_KEY` on Vercel + web redeploy) — it is
-      wired but off by default.
+- [ ] `/api/metrics` reachable with basic auth.
+- [ ] Logs from all three apps visible in Log Analytics as JSON.
+- [ ] Request id propagates web → api → worker (search one id in
+      `ContainerAppConsoleLogs_CL`).
+- [ ] Budget alert on the resource group (Cost Management).
+- [ ] Sentry receiving events from web, api, worker — once wired.
 
-## 8. Backup verification
+## 8. Abuse & network hardening
 
-- [ ] Confirm Railway Postgres backup cadence for the current plan; take a
-      manual snapshot before any risky migration.
-- [ ] (When R2 is enabled) verify object versions are retrievable.
+- [ ] Re-verify the SSRF guard against the live API:
+      `http://169.254.169.254/`, `http://localhost/`, `http://10.40.2.4/`,
+      `file:///etc/passwd` are all rejected.
+- [ ] Network-layer egress blocking for the worker (SECURITY.md →
+      "Deployment hardening"): design an NSG for the `apps` subnet that
+      allows the apps subnet, Postgres (`10.40.2.0/24:5432`) and Redis
+      (`10.40.3.0/24:10000`) and denies other private ranges; verify it
+      against the running environment before enforcing it in `infra/`.
+- [ ] Enable Turnstile in production (both keys, then Deploy).
 
-## 9. On-call & docs
+## 9. Backup verification
 
-- [x] `docs/RUNBOOK.md` present.
-- [ ] Update RUNBOOK with the **actual** Railway/Vercel topology and the
-      Prisma-client-copy / CORS / password-rotation gotchas above.
-- [ ] At least one more person can run a Railway rollback (redeploy previous
-      deployment) end-to-end.
+- [ ] Postgres point-in-time restore rehearsed once (restore to a new
+      server, connect, delete it again).
+- [ ] (When artifact storage is enabled) verify object versions are
+      retrievable.
+
+## 10. On-call & docs
+
+- [ ] At least one more person can run the Deploy workflow and the image
+      rollback in `RUNBOOK.md` end-to-end.
 - [ ] Sentry alert rules (after Sentry is wired): new prod issue → notify;
       regression → notify; high-volume (>50/h) → page.
 
-## 10. Day-after
+## 11. Decommission the old platforms
+
+- [ ] Railway: project deleted (after confirming nothing in it is needed).
+- [ ] Vercel: project `nrth-ai-s-projects/areyouagentic` deleted.
+- [ ] GitHub: Vercel and Railway apps uninstalled from the repository
+      (removes the Vercel PR check and push-triggered builds).
+
+## 12. Day-after
 
 - [ ] First 24h: `/api/metrics` `errorRate` ≤ baseline.
 - [ ] First 24h: no unexplained `byStatus.FAILED` spikes.
 - [ ] First week: every distinct Sentry issue (once wired) has a fix queued
       or a "won't fix" rationale.
-
-## Top follow-ups before a wider (non-beta) launch
-
-1. **Sentry** — error tracking is the biggest gap; wire server + client DSNs.
-2. **Versioned migrations** — done in code (init migration + Migrate
-   workflow); remaining: add the `PROD_DATABASE_URL` secret and run the
-   one-time `migrate resolve --applied 0_init` baseline (see §3).
-3. **Custom domain + DNS** — `areyouagentic.com`, then update `APP_URL` +
-   `NEXT_PUBLIC_API_URL`.
-4. **R2** — re-enable screenshots in reports if they add user value.
-5. **Backups** — confirm/raise Railway Postgres retention; rehearse a restore.

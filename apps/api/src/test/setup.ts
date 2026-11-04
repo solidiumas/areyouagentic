@@ -35,3 +35,6 @@ process.env.REDIS_URL = pick(
 // never accept or rely on it — only the worker process talks to Anthropic.
 process.env.APP_URL = pick(process.env.APP_URL, 'http://localhost:3000')!;
 process.env.PORT = pick(process.env.PORT, '4000')!;
+// app.inject() connects from 127.0.0.1; trusting it lets tests choose a client
+// IP via X-Forwarded-For (uniqueIpHeader) so rate-limit buckets don't collide.
+process.env.TRUST_PROXY = pick(process.env.TRUST_PROXY, '127.0.0.1')!;

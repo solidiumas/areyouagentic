@@ -5,7 +5,7 @@ import * as React from 'react';
 /**
  * Renders a timestamp in the *viewer's* locale and timezone. Server components
  * that call `toLocaleString()` bake the server region's timezone into the HTML
- * (e.g. the Vercel deployment region), which is wrong for almost every viewer.
+ * (e.g. the hosting region), which is wrong for almost every viewer.
  *
  * The server render (and initial client render) shows the ISO string, then an
  * effect swaps in the browser-localized text after hydration — so server and

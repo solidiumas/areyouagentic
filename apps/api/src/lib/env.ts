@@ -26,6 +26,13 @@ const envSchema = z.object({
   // `cf-turnstile-response` token. Unset (the default) disables the check so
   // local dev, CI, and curl keep working without a captcha.
   TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+
+  // Comma-separated IPs/CIDRs of the reverse proxies allowed to set
+  // X-Forwarded-For — in production the Container Apps ingress, which runs
+  // inside the apps subnet. Unset trusts no proxy and rate-limits on the
+  // socket peer address. Never trust everything: any client could then
+  // rotate a forged X-Forwarded-For past every per-IP limit.
+  TRUST_PROXY: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

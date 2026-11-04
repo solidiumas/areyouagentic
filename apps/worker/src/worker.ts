@@ -4,6 +4,7 @@ import { env } from './lib/env.js';
 import { logger } from './lib/logger.js';
 import {
   ANALYSIS_QUEUE_NAME,
+  QUEUE_PREFIX,
   type AnalysisJobPayload,
   type CleanupScreenshotsPayload,
   type QueueJobPayload,
@@ -90,6 +91,7 @@ export function createAnalysisWorker(): AnalysisWorker {
     },
     {
       connection,
+      prefix: QUEUE_PREFIX,
       concurrency: env.WORKER_CONCURRENCY,
       ...DEFAULT_WORKER_OPTIONS,
     },

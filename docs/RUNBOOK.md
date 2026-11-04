@@ -3,22 +3,31 @@
 Operational reference for the people on call. Every section is meant to be
 short enough to act on at 3am.
 
+First-time setup of the Azure environment is in
+[`AZURE_OPPSETT.md`](AZURE_OPPSETT.md); this document assumes it exists.
+
 ---
 
 ## Architecture in one paragraph
 
-The user hits **web** (Next.js on Vercel) which calls the **api**
-(Fastify on Railway, Docker). The API inserts an `AnalysisJob` row in
-**Postgres** (Railway managed) and enqueues a BullMQ job in **Redis**
-(Railway managed). The **worker** (Railway, Docker, Playwright base image)
-picks it up, scrapes the URL, runs analyzers, and writes a `Report` row.
-Screenshot/artifact upload to **R2** (Cloudflare) is deferred for the beta
-— persist skips the upload when R2 env vars are unset. The frontend polls
-`/api/jobs/:id` until COMPLETED, then fetches the report.
+Everything runs in one Azure resource group (default prefix `aya-prod`),
+defined in [`infra/`](../infra). The user hits **web** (Next.js, Container
+App `aya-prod-web`), which calls the **api** (Fastify, `aya-prod-api`). The
+API inserts an `AnalysisJob` row in **Postgres** (Azure Database for
+PostgreSQL Flexible Server) and enqueues a BullMQ job in **Redis** (Azure
+Managed Redis). The **worker** (`aya-prod-worker`, Playwright base image,
+no ingress) picks it up, scrapes the URL, runs analyzers, and writes a
+`Report` row. Postgres and Redis have no public endpoint: they are reachable
+only from the Container Apps environment's VNet. Screenshot upload to **R2**
+is still off — persist skips the upload when the R2 env vars are unset. The
+frontend polls `/api/jobs/:id` until COMPLETED, then fetches the report.
 
-Logs ship as JSON (pino) to the platform's pipeline (Vercel logs, Railway
-logs). Errors fan out to **Sentry** once the DSNs are wired — that's still
-pending for the beta, so until then the logs are the only error trail.
+Two Container Apps jobs run next to the apps: `aya-prod-migrate` (manual,
+started by every deploy) and `aya-prod-retention` (daily 03:00 UTC, deletes
+analyses older than `RETENTION_DAYS`).
+
+Logs ship as JSON (pino) to the environment's **Log Analytics** workspace
+(`aya-prod-logs`). Errors fan out to **Sentry** when `SENTRY_DSN` is set.
 The `/api/metrics` JSON endpoint (basic-auth) exposes job counts, duration
 percentiles, error rate, and (eventually) LLM token usage.
 
@@ -26,29 +35,27 @@ percentiles, error rate, and (eventually) LLM token usage.
 
 ## How to deploy
 
-### Production deploy (push to main)
+### Production deploy
 
-Deploys are GitHub-driven — there is no tag-based or GHCR-image deploy in
-the beta. Merging/pushing to `main` **is** the deploy.
+Run the **Deploy** workflow (`.github/workflows/deploy.yml`) from the Actions
+tab on `main`. It is manual on purpose: merging to `main` deploys nothing.
 
 1. Verify `main` is green on the [CI workflow](../.github/workflows/ci.yml)
-   (lint, typecheck, build, test, Docker image builds for all three apps).
-2. Push to `main`:
-   - **Railway (api + worker):** rebuilds each service from its own
-     Dockerfile (`apps/api/Dockerfile`, `apps/worker/Dockerfile`). Both
-     respect `SIGTERM`; their graceful-shutdown logic drains in-flight
-     work (90s + 5s buffer for the worker).
-   - **Vercel (web):** rebuilds the project with root directory `apps/web`
-     (`vercel.json` drives install + `turbo` build).
-   - **Migrations:** the Migrate workflow runs `prisma migrate deploy` in
-     parallel with the rebuilds — see "Database migrations" below.
+   (lint, typecheck, build, test, migration drift, E2E, Docker builds).
+2. Actions → **Deploy** → Run workflow (branch `main`). The job:
+   1. applies `infra/main.bicep` (core infra; normally a no-op),
+   2. builds and pushes `web`, `api`, `worker` and `migrate` images to ACR,
+      tagged with the commit SHA,
+   3. points `aya-prod-migrate` at the new image, runs it and waits —
+      a failed migration stops the deploy before any new code starts,
+   4. applies `infra/apps.bicep`, which rolls the three apps and the
+      retention job to the new images,
+   5. smoke-checks `GET /health` on the API and `GET /` on web.
 3. Watch:
-   - `/health` on the API
-     (`curl https://api-production-6eca.up.railway.app/health` →
-     `{"status":"ok","checks":{"database":"ok","redis":"ok"}}`).
-   - Worker: the health server on `:4001` is Railway-internal — check the
-     service status and logs in the Railway dashboard instead, then confirm
-     it drains the queue with the smoke test in "Useful commands".
+   - The workflow's smoke-check step (`{"status":"ok","checks":{"database":"ok","redis":"ok"}}`).
+   - Portal → each Container App → **Revisions and replicas**: the new
+     revision should be _Running_ and _Healthy_. The worker has no ingress;
+     its readiness probe (`/ready` on `:4001`) is what turns it healthy.
    - Sentry "Last hour" view for new issues (once Sentry is wired).
    - `/api/metrics` for `errorRate` and `p99` regressions.
 
@@ -59,72 +66,71 @@ the beta. Merging/pushing to `main` **is** the deploy.
   generated client over the stub (the `find … @prisma+client … cp -a`
   step). Removing it brings back `@prisma/client did not initialize yet`
   at runtime.
-- **`APP_URL` (api, CORS):** must be a full `https://…` origin (Zod
-  validates it as a URL; a bare host crashes the API on boot) and must
-  match the browser origin exactly — currently
-  `https://areyouagentic.vercel.app`.
-- **`NEXT_PUBLIC_API_URL` (Vercel):** baked into the web bundle at build
-  time. Changing it does nothing until you redeploy web.
+- **`APP_URL` (api, CORS):** must be a full `https://…` origin and match
+  the browser origin exactly. `infra/apps.bicep` derives it from the web
+  app's hostname, or from the `APP_PUBLIC_URL` variable once a custom
+  domain is attached.
+- **`NEXT_PUBLIC_*` (web):** inlined into the bundle _and_ the CSP at
+  build time (Docker build args). Changing `API_PUBLIC_URL`,
+  `APP_PUBLIC_URL` or the Turnstile/Sentry public keys does nothing until
+  the next Deploy run rebuilds the web image.
+- **BullMQ key prefix:** producer and consumer both use
+  `QUEUE_PREFIX = '{bull}'` (hash tag) because Azure Managed Redis shards
+  keys and BullMQ's Lua scripts need all of a queue's keys in one slot.
+  Changing it on one side only splits the queue.
 - Monorepo builds use `turbo run build --filter=<app>` (not
   `pnpm --filter`) so workspace deps build in topological order.
 
 ### Staging deploy
 
-There is no staging environment in the beta. Pre-merge verification is CI
+There is no staging environment yet. Pre-merge verification is CI
 (including the Docker image builds) plus running the stack locally with
-`docker compose`. If you need a shared preview of a web change, use the
-Vercel preview deployment for the PR branch.
+`docker compose`. A staging copy is a second resource group deployed with a
+different `AZURE_PREFIX` on a second GitHub environment.
 
 ### Database migrations
 
 Migrations live in `packages/db/prisma/migrations/` and are applied by the
-**Migrate** GitHub workflow (`.github/workflows/migrate.yml`), which runs
-`prisma migrate deploy` against the production database whenever a new
-migration lands on `main` (and on manual dispatch). It authenticates via the
-repo secret `PROD_DATABASE_URL` (Railway → Postgres → `DATABASE_PUBLIC_URL`).
+`aya-prod-migrate` job (image: `packages/db/Dockerfile`, which runs
+`prisma migrate deploy`) as step 3 of every deploy. Postgres has no public
+endpoint, so migrations cannot run from a laptop or a GitHub runner.
 
 The runtime images do **not** contain the Prisma CLI — don't try to run
-migrations from inside a deployed container.
+migrations from inside a deployed app container.
 
-Because the Migrate workflow and the Railway image rebuild run in parallel,
-migrations must be backward compatible with the currently deployed code
-(expand/contract: add columns/tables first, ship code that uses them, drop
-old columns in a later migration).
+Migrations run while the previous revision is still serving, so they must
+be backward compatible with the currently deployed code (expand/contract:
+add columns/tables first, ship code that uses them, drop old columns in a
+later migration).
 
-**One-time baseline (beta):** the beta database was originally provisioned
-with `prisma db push`, so before the first `migrate deploy` the init
-migration must be marked as already applied:
+Re-run the latest migration image by hand:
 
 ```bash
-DATABASE_URL=<DATABASE_PUBLIC_URL> \
-  pnpm --filter @areyouagentic/db exec prisma migrate resolve --applied 0_init
-```
-
-Manual fallback if the workflow is unavailable:
-
-```bash
-DATABASE_URL=<DATABASE_PUBLIC_URL> \
-  pnpm --filter @areyouagentic/db exec prisma migrate deploy
+az containerapp job start -g <rg> -n aya-prod-migrate
+az containerapp job execution list -g <rg> -n aya-prod-migrate -o table
 ```
 
 ---
 
 ## How to roll back
 
-**Fastest path** (no rebuild):
+**Fastest path** (no rebuild): every deploy pushes images tagged with the
+commit SHA, so point the apps back at the previous good SHA.
 
-1. In Railway, open each affected service (api, worker) → **Deployments**
-   → pick the previous good deployment → **Redeploy**.
-2. In Vercel, promote the previous deployment from the **Deployments**
-   tab.
-3. Confirm the API `/health` is green and the worker is online in the
-   Railway dashboard.
-4. Check `/api/metrics` `errorRate` and `p99` are back to baseline.
+```bash
+PREV=<previous good commit sha>
+REG=$(az acr list -g <rg> --query '[0].loginServer' -o tsv)
+for app in api worker web; do
+  az containerapp update -g <rg> -n aya-prod-$app --image "$REG/$app:$PREV"
+done
+```
 
-**Durable path:** `git revert` the bad commit and push to `main` — that
-triggers fresh Railway + Vercel builds of the reverted code. Do this after
-(or instead of) the dashboard rollback, otherwise the next unrelated push
-to `main` redeploys the bad code.
+Then confirm API `/health` is green, the new revisions are healthy, and
+`/api/metrics` `errorRate` and `p99` are back to baseline.
+
+**Durable path:** `git revert` the bad commit on `main` and run **Deploy**
+again. Do this after (or instead of) the image rollback, otherwise the
+next deploy ships the bad code again.
 
 **If a migration is in the bad release**, the rollback gets harder:
 
@@ -134,10 +140,10 @@ to `main` redeploys the bad code.
 - Mitigation: deploy migrations in two phases (additive first, removal
   later). The release that "removes" a column should be N+1 after the
   release that stopped writing to it.
-- If you're stuck: restore the most recent Railway Postgres backup (take a
-  manual snapshot before any risky migration — the plan's automatic backup
-  cadence hasn't been confirmed) and re-run the previous app version
-  against it.
+- If you're stuck: restore Postgres to a point in time before the
+  migration (Portal → the Flexible Server → **Overview → Restore**; this
+  creates a _new_ server, so point `DATABASE_URL` at it by redeploying with
+  the new server name) and roll the apps back to the previous image.
 
 ---
 
@@ -151,49 +157,46 @@ Symptoms:
 
 Triage:
 
-1. Worker health:
+1. Worker health: Portal → `aya-prod-worker` → **Revisions and replicas**.
+   Is the replica running and healthy? A worker that can't reach Postgres
+   or Redis fails its readiness probe and logs it loudly — fix that first.
 
-   The worker's health server on `:4001` is Railway-internal (no public
-   URL). Check the worker service in the Railway dashboard: is the latest
-   deployment online, and do the logs show it processing jobs? A worker
-   that can't reach DB or Redis logs it loudly — fix that first.
-
-2. Worker status:
+2. Worker logs:
 
    ```bash
-   railway logs --service worker
+   az containerapp logs show -g <rg> -n aya-prod-worker --follow
    ```
 
-   Is the instance healthy? Restart it from the Railway dashboard if it's
-   crash-looping.
+   Crash-looping? Restart the revision:
+   `az containerapp revision restart -g <rg> -n aya-prod-worker --revision <name>`.
 
 3. Concurrency:
-   - Default `WORKER_CONCURRENCY=3` per instance.
-   - Bump to 4–5 if CPU is under 70% and memory is under 70%.
+   - Default `WORKER_CONCURRENCY=3` per replica (`workerConcurrency` in
+     `infra/apps.bicep`).
+   - Bump to 4–5 if CPU and memory stay under 70% (Portal → Metrics).
    - **Do not** raise above 8 — Playwright/Chromium memory grows linearly
-     and you'll OOM the box.
+     and a 4 GiB replica will OOM.
 
-4. Scale out:
-   - Add a worker instance via Railway's replicas / duplicate-service
-     option.
-   - BullMQ distributes jobs across all instances automatically — no
-     config change needed.
+4. Scale out: raise `maxReplicas`/`minReplicas` on the worker in
+   `infra/apps.bicep` and deploy. BullMQ distributes jobs across replicas
+   automatically.
 
-5. Drain by hand (last resort):
+5. Inspect by hand (last resort). Redis is private, so go through a
+   running container that has `ioredis`:
 
    ```bash
-   # Connect a redis-cli to the BullMQ instance and inspect:
-   redis-cli -u "$REDIS_URL"
-     > LRANGE bull:analysis:wait 0 -1   # waiting jobs
-     > LLEN  bull:analysis:active        # in-flight
-   # To purge a stuck job (rare — only if you know it's not retryable):
-   #   DEL bull:analysis:<jobId>
+   az containerapp exec -g <rg> -n aya-prod-api --command sh
+   # inside the container:
+   node -e '
+     const { Redis } = require("ioredis");
+     const r = new Redis(process.env.REDIS_URL);
+     Promise.all([r.llen("{bull}:analysis:wait"), r.llen("{bull}:analysis:active")])
+       .then(([wait, active]) => { console.log({ wait, active }); r.quit(); });
+   '
    ```
 
-Recovery time: BullMQ pulls jobs FIFO. With three workers at default
-concurrency, throughput is ~50 jobs/min for stubbed stages, materially
-slower once real Playwright + Anthropic calls are wired in. Plan capacity
-against the latest `queue-throughput.js` k6 run.
+Recovery time: BullMQ pulls jobs FIFO. Plan capacity against the latest
+`queue-throughput.js` k6 run.
 
 ---
 
@@ -208,22 +211,20 @@ Symptoms:
 
 Actions:
 
-1. **Confirm it's quota, not a bug.** Hit
-   `https://status.anthropic.com` and the Anthropic console.
-2. **Slow the queue.** Set `WORKER_CONCURRENCY=1` on the worker service
-   in Railway and redeploy it. Jobs will keep flowing but stop competing
-   for the per-minute Anthropic budget.
+1. **Confirm it's quota, not a bug.** Check `https://status.anthropic.com`
+   and the Anthropic console.
+2. **Slow the queue.** Set `workerConcurrency` to 1 and deploy, or
+   immediately:
+   `az containerapp update -g <rg> -n aya-prod-worker --set-env-vars WORKER_CONCURRENCY=1`
+   (the next Deploy run resets it to the Bicep value).
 3. **Disable enqueue if it's worse.** Set `ANALYZE_PER_MINUTE.max = 0` in
-   `apps/api/src/lib/rateLimiter.ts` and push to `main` (it's a code
-   constant, so this ships via a normal deploy) — users see a 429 instead
+   `apps/api/src/lib/rateLimiter.ts` and deploy — users see a 429 instead
    of jobs piling up to fail.
-4. **Failover.** If quota is provider-side and won't recover in <30 min,
-   page the on-call engineer to coordinate with Anthropic support; the
-   Anthropic API key in `ANTHROPIC_API_KEY` is per-org.
-5. **Catch up.** Once quota returns, set concurrency back to 3 and let
-   the queue drain. Failed jobs aren't auto-retried at the user level —
-   they'd need to re-submit. If you want to retry the batch, you can
-   enqueue them by `jobId` directly (see the BullMQ docs).
+4. **Run without the LLM.** Removing the `ANTHROPIC_API_KEY` secret from the
+   GitHub environment and redeploying makes the worker skip the LLM step;
+   reports still get their deterministic score.
+5. **Catch up.** Once quota returns, restore concurrency and let the queue
+   drain. Failed jobs aren't auto-retried at the user level — users re-submit.
 
 ---
 
@@ -233,116 +234,109 @@ Actions:
 
 Redis is unreachable from the API.
 
-- Check the Railway Redis service in the dashboard.
-- Check `REDIS_URL` — it should reference the Railway-managed instance
-  (`${{Redis.REDIS_URL}}`).
+- Portal → the Redis resource (`aya-prod-redis-*`): is it running?
+- The private endpoint `aya-prod-redis-*-pe` must be _Approved_ and the
+  `privatelink.redis.azure.net` DNS zone linked to `aya-prod-vnet`.
 - The API marks the AnalysisJob row FAILED and tells the user to retry.
 
 ### `GET /health` returns 503
 
 Look at the `checks` object in the response:
 
-- `database: fail` → Postgres unreachable. Check the Railway Postgres
-  service and that `DATABASE_URL` is `${{Postgres.DATABASE_URL}}`.
-- `redis: fail` → Railway Redis unreachable. Same drill.
+- `database: fail` → Postgres unreachable or rejecting the login. Check the
+  Flexible Server is running, and that `POSTGRES_ADMIN_PASSWORD` in the
+  GitHub environment matches the server (both Bicep files use it).
+- `redis: fail` → see the Redis checks above.
 
-### API crash-loops right after an env-var change
+### API won't start after a config change
 
-`APP_URL` (the CORS origin) is validated as a URL at boot. A bare host
-like `areyouagentic.vercel.app` (no `https://`) crashes the API on
-startup. Set the full origin — `https://areyouagentic.vercel.app` — and
-redeploy. It must also match the browser origin exactly, or every browser
-request fails CORS.
+`APP_URL` (the CORS origin) is validated as a URL at boot: a bare host
+crashes the API. Set `APP_PUBLIC_URL` to a full origin
+(`https://areyouagentic.com`) or leave it empty to use the default
+hostname, then deploy. It must match the browser origin exactly, or every
+browser request fails CORS.
 
 ### Worker stuck on a job (lock keeps expiring)
 
 A single job is exceeding `JOB_TIMEOUT_MS` (90s). BullMQ reaps it as
-stalled and re-picks it up, looping forever.
+stalled and re-picks it up.
 
-- Find the job: `redis-cli LRANGE bull:analysis:stalled 0 -1`.
-- Mark it failed in the DB and let `UnrecoverableError` keep BullMQ off
-  it:
-
-  ```sql
-  UPDATE "AnalysisJob"
-  SET status = 'FAILED', "errorMessage" = 'manually failed: stalled',
-      "completedAt" = now()
-  WHERE id = '<jobId>';
-  ```
-
-- Remove it from BullMQ:
+- Mark it failed in the DB so the next pickup is a no-op (via
+  `az containerapp exec` into the api container, with Prisma):
 
   ```bash
-  redis-cli -u "$REDIS_URL" DEL "bull:analysis:<jobId>"
+  node -e '
+    const { PrismaClient } = require("@prisma/client");
+    const p = new PrismaClient();
+    p.analysisJob.update({ where: { id: "<jobId>" },
+      data: { status: "FAILED", errorMessage: "manually failed: stalled", completedAt: new Date() } })
+      .then(() => p.$disconnect());
+  '
   ```
+
+- Then remove it from BullMQ (same container, ioredis):
+  `r.del("{bull}:analysis:<jobId>")`.
 
 ### Memory growth on the worker
 
-Playwright leaks small amounts of native memory per browser context.
-We mitigate by closing contexts after each job; if the process still
-grows over a day, the platform's auto-restart-on-memory-limit catches it.
-Set the limit to ~1.5 GiB on Railway and let it cycle.
+Playwright leaks small amounts of native memory per browser context. We
+close contexts after each job; if a replica still grows past its 4 GiB
+limit, Container Apps restarts it. Frequent restarts → lower
+`WORKER_CONCURRENCY` before raising memory.
 
 ### Web app blank page / Next.js crash
 
-- Check the Vercel deployment status.
+- Portal → `aya-prod-web` → revision health and logs.
 - If API calls fail from the browser, remember `NEXT_PUBLIC_API_URL` is
-  baked into the bundle at build time — a changed value only takes effect
-  after a web redeploy. Check it matches the live API URL.
-- Look at the latest Sentry browser-side issues (once Sentry is wired) —
-  `@sentry/nextjs` captures client errors with full source maps when
-  `SENTRY_AUTH_TOKEN` is set in CI. Until then, use Vercel logs.
-- Roll back via Vercel's promote-previous-deployment.
+  baked into the bundle at build time — check it matches the live API URL
+  (`API_PUBLIC_URL`, or the API's default hostname) and redeploy.
+- Look at the latest Sentry browser-side issues (once Sentry is wired).
+- Roll back with the image rollback above.
 
 ---
 
 ## Backups
 
-- **Postgres (Railway managed):** the automatic backup cadence for the
-  current plan hasn't been confirmed yet — check it in the Railway
-  dashboard, and take a manual snapshot before any risky migration.
-  Rehearse a restore before relying on it.
-- **R2 artifacts:** deferred for the beta — no screenshots are uploaded,
-  so there is nothing to back up yet. When R2 is enabled: bucket
-  versioning + a 30-day lifecycle rule; the data is reproducible (re-run
-  the analyzer) so no cross-region replica.
-- **Redis (Railway managed):** BullMQ state is ephemeral by design. We
-  treat Redis loss as a queue reset, not a data loss event.
-- **Secrets:** stored in the platform's variable manager (Railway
-  per-service, Vercel project). The team's password manager has a "break
-  glass" export for disaster recovery. If a credential leaks (it happened
-  once with the Postgres password during setup): Railway Postgres →
-  Config → Regenerate password, then redeploy api + worker so they pick
-  up the new `${{Postgres.DATABASE_URL}}`.
+- **Postgres:** automatic backups with point-in-time restore, retention
+  `postgresBackupRetentionDays` (default 7) in `infra/main.bicep`. A
+  restore creates a new server. Rehearse one before relying on it.
+- **R2 artifacts:** not enabled — no screenshots are uploaded yet. When
+  storage is enabled (likely Azure Blob Storage instead of R2): versioning
+  plus a 30-day lifecycle rule; the data is reproducible (re-run the
+  analyzer) so no cross-region replica.
+- **Redis:** BullMQ state is ephemeral by design. Treat Redis loss as a
+  queue reset, not a data-loss event.
+- **Secrets:** the source of truth is the `production` environment in
+  GitHub (Settings → Environments). The deploy writes them into per-app
+  Container Apps secrets. If a credential leaks: rotate it at the source
+  (e.g. a new Postgres password in `POSTGRES_ADMIN_PASSWORD`), then run
+  **Deploy** — main.bicep sets the new Postgres password and apps.bicep
+  rolls every app onto it.
 
 ---
 
 ## Useful commands
 
 ```bash
-# Read the API metrics (basic-auth — set in METRICS_USERNAME/PASSWORD)
-curl -u "$METRICS_USERNAME:$METRICS_PASSWORD" \
-     https://api-production-6eca.up.railway.app/api/metrics | jq
+# Read the API metrics (basic-auth — METRICS_USERNAME / METRICS_PASSWORD)
+curl -u "$METRICS_USERNAME:$METRICS_PASSWORD" "$API_URL/api/metrics" | jq
 
-# Tail API logs (Railway)
-railway logs --service api --tail
+# Tail logs
+az containerapp logs show -g <rg> -n aya-prod-api --follow
+az containerapp logs show -g <rg> -n aya-prod-worker --follow
 
-# Tail worker logs (Railway)
-railway logs --service worker --tail
+# Query Log Analytics (Portal → aya-prod-logs → Logs), e.g. one request id
+#   ContainerAppConsoleLogs_CL | where Log_s has "<request-id>"
 
-# Connect to Railway Postgres (from outside Railway, use the public URL:
-# Railway → Postgres → DATABASE_PUBLIC_URL)
-psql "$DATABASE_PUBLIC_URL"
+# Shell into a running container (Postgres/Redis are only reachable from here)
+az containerapp exec -g <rg> -n aya-prod-api --command sh
 
-# Connect to Railway Redis (public URL from the Redis service's variables)
-redis-cli -u "$REDIS_URL"
-
-# Re-run migrations (see "Database migrations" for the full drill)
-DATABASE_URL=<DATABASE_PUBLIC_URL> \
-  pnpm --filter @areyouagentic/db exec prisma migrate deploy
+# Retention job: run now / see past runs
+az containerapp job start -g <rg> -n aya-prod-retention
+az containerapp job execution list -g <rg> -n aya-prod-retention -o table
 
 # Manual smoke test against production
-curl -X POST https://api-production-6eca.up.railway.app/api/analyze \
+curl -X POST "$API_URL/api/analyze" \
      -H "Content-Type: application/json" \
      -d '{"url":"https://example.com"}'
 # → 202 + jobId; then poll GET /api/jobs/<jobId> until COMPLETED
@@ -354,7 +348,7 @@ curl -X POST https://api-production-6eca.up.railway.app/api/analyze \
 
 - Anthropic quota or model issues → Anthropic support
   (`support@anthropic.com`).
-- Vercel / Railway (and Cloudflare once R2 is enabled) →
-  the provider's status page first, then a support ticket.
+- Azure → [status.azure.com](https://status.azure.com), then a support
+  request from the portal.
 - Internal: on-call rotation in PagerDuty (or Slack `#oncall` if you
   haven't set up paging yet).

@@ -135,7 +135,8 @@ jobs:
   # (playwright.config.ts starts one on :3100).
   e2e-web:
     name: Web E2E (Playwright)
-    runs-on: ubuntu-latest
+    # Pinned for the same Playwright/Ubuntu reason as the verify job.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - name: Checkout
@@ -179,7 +180,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [api, worker, web]
+        include:
+          - { app: api, dockerfile: apps/api/Dockerfile }
+          - { app: worker, dockerfile: apps/worker/Dockerfile }
+          - { app: web, dockerfile: apps/web/Dockerfile }
+          - { app: migrate, dockerfile: packages/db/Dockerfile }
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -191,7 +196,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: apps/${{ matrix.app }}/Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: false
           load: false
           tags: areyouagentic-${{ matrix.app }}:ci-${{ github.sha }}

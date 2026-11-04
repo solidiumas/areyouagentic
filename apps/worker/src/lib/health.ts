@@ -5,7 +5,7 @@ import { env } from './env.js';
 import { logger } from './logger.js';
 
 /**
- * Tiny in-process HTTP server so the orchestrator (Fly.io / Railway / k8s)
+ * Tiny in-process HTTP server so the orchestrator (Azure Container Apps / k8s)
  * has something to point a liveness/readiness probe at. The worker has no
  * HTTP surface of its own — we deliberately don't pull in Fastify just for
  * this; `node:http` is enough.

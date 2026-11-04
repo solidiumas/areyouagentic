@@ -218,12 +218,20 @@ The app-layer SSRF gates above are the primary control, but the worker
 host **must** also block outbound traffic to internal ranges as
 defense-in-depth — this is what backstops the residual DNS-TOCTOU window
 and any future code path that forgets a gate. On the platform that runs
-`apps/worker` (Railway / Fly.io / container host), deny egress to:
+`apps/worker` (Azure Container Apps, see `infra/`), deny egress to:
 
 - `169.254.0.0/16` (incl. the cloud metadata IP `169.254.169.254`)
 - `127.0.0.0/8`, `::1`
 - `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `100.64.0.0/10`
 - IPv6 ULA `fc00::/7` and link-local `fe80::/10`
+
+On Azure the worker shares the VNet with Postgres (`10.40.2.0/24`, TCP 5432)
+and Redis (`10.40.3.0/24`, TCP 10000), so a subnet NSG must allow exactly
+those two plus the apps subnet itself before denying the private ranges.
+`infra/` does **not** ship that NSG yet: Container Apps reserves internal
+ranges of its own, and the rule set has to be verified against a running
+environment before it is enforced (tracked in `docs/DEPLOYMENT_CHECKLIST.md`).
+Until then the app-layer gates are the only control.
 
 R2 screenshot storage: the bucket must **not** be publicly listable, and
 object keys are unguessable (`screenshots/<jobId>.png`). Prefer serving

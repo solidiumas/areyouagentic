@@ -3,6 +3,7 @@ import { Queue } from 'bullmq';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   ANALYSIS_QUEUE_NAME,
+  QUEUE_PREFIX,
   type AnalysisJobPayload,
   createRedisConnection,
 } from '../lib/queue.js';
@@ -32,6 +33,7 @@ describe.skipIf(process.env.CI === 'true')('worker pipeline — e2e', () => {
     // so closing one doesn't yank the rug from the other.
     queue = new Queue<AnalysisJobPayload>(ANALYSIS_QUEUE_NAME, {
       connection: createRedisConnection(),
+      prefix: QUEUE_PREFIX,
     });
     workerHandle = createAnalysisWorker();
     // BullMQ's Worker starts processing as soon as it's constructed; wait for
