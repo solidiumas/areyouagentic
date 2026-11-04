@@ -35,19 +35,17 @@ RUN pnpm config set store-dir /pnpm/store \
 
 # ── 3. build — produce .next/standalone ──────────────────────────────────
 FROM deps AS build
+# Build args are visible to RUN as env vars when passed and stay *unset*
+# when not. Don't copy them into ENV: that turns an omitted arg into an
+# empty string, which defeats the app's `??` defaults (an empty
+# NEXT_PUBLIC_APP_URL makes `new URL('')` fail the build).
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_TURNSTILE_SITE_KEY
 ARG NEXT_PUBLIC_SENTRY_DSN
 ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT
 ARG NEXT_PUBLIC_SENTRY_RELEASE
-ENV NEXT_TELEMETRY_DISABLED=1 \
-    NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
-    NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL \
-    NEXT_PUBLIC_TURNSTILE_SITE_KEY=$NEXT_PUBLIC_TURNSTILE_SITE_KEY \
-    NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN \
-    NEXT_PUBLIC_SENTRY_ENVIRONMENT=$NEXT_PUBLIC_SENTRY_ENVIRONMENT \
-    NEXT_PUBLIC_SENTRY_RELEASE=$NEXT_PUBLIC_SENTRY_RELEASE
+ENV NEXT_TELEMETRY_DISABLED=1
 COPY tsconfig.base.json turbo.json ./
 COPY packages packages
 COPY apps/web apps/web
