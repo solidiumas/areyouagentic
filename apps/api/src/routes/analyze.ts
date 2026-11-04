@@ -137,8 +137,7 @@ export async function analyzeRoutes(app: FastifyInstance): Promise<void> {
       // isolation makes the loser abort (P2034) and retry into the dedupe
       // branch instead.
       type DedupeOutcome =
-        | { kind: 'in-flight' | 'cached'; jobId: string }
-        | { kind: 'created'; jobId: string };
+        { kind: 'in-flight' | 'cached'; jobId: string } | { kind: 'created'; jobId: string };
 
       const outcome = await withSerializableRetry<DedupeOutcome>(() =>
         prisma.$transaction(

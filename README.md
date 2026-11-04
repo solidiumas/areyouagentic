@@ -148,7 +148,7 @@ deliberately don't include the CLI:
 | -------- | -------------------------------------------------------------- | ----------- |
 | `web`    | `node:20-alpine` (Next.js standalone)                          | ~150 MB     |
 | `api`    | `node:20-alpine` + prisma engines                              | ~200 MB     |
-| `worker` | `mcr.microsoft.com/playwright:v1.55.1-jammy` (Chromium + Node) | ~1.6 GB     |
+| `worker` | `mcr.microsoft.com/playwright:v1.61.1-jammy` (Chromium + Node) | ~1.6 GB     |
 
 Build the whole stack locally:
 

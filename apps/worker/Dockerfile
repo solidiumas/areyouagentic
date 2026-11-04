@@ -67,7 +67,7 @@ RUN set -eux; \
 # WebKit + every X font you've ever heard of. We get all of that for free.
 # Pin the tag to the Playwright version the code expects so a rebuild can't
 # silently pull a newer Chromium under us.
-FROM mcr.microsoft.com/playwright:v1.55.1-jammy AS runtime
+FROM mcr.microsoft.com/playwright:v1.61.1-jammy AS runtime
 ENV NODE_ENV=production \
     HEALTH_PORT=4001 \
     # Tell Playwright not to download browsers at runtime; the base image ships them.
